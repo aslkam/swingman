@@ -398,34 +398,53 @@ export default function Home() {
 
               {/* Score card */}
               <motion.div variants={item}
-                className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 text-center"
-                style={{ boxShadow: '0 0 40px rgba(34,197,94,0.08)' }}
+                className="rounded-2xl border border-white/[0.08] bg-white/[0.03] overflow-hidden"
+                style={{ boxShadow: '0 0 50px rgba(34,197,94,0.07)' }}
               >
-                <ScoreArc score={results.score ?? 70} />
-                <p className="text-white/70 text-sm mt-3 leading-relaxed max-w-xs mx-auto">{results.summary}</p>
+                <div className="px-5 pt-5 pb-4 flex items-center gap-5">
+                  <ScoreArc score={results.score ?? 70} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-green-400 uppercase tracking-widest mb-1">Din svingscore</p>
+                    <p className="text-white font-bold text-lg leading-tight mb-2">
+                      {(results.score ?? 70) >= 80 ? 'Utmerket teknikk 🏌️' :
+                       (results.score ?? 70) >= 65 ? 'Godt grunnlag 👍' :
+                       (results.score ?? 70) >= 50 ? 'Under utvikling 📈' : 'Begynner 🌱'}
+                    </p>
+                    <p className="text-white/50 text-sm leading-relaxed">{results.summary}</p>
+                  </div>
+                </div>
+                {/* Quick stats */}
+                <div className="grid grid-cols-3 divide-x divide-white/[0.05] border-t border-white/[0.05]">
+                  {[
+                    { label: 'Styrker', value: results.strengths?.length ?? 0, color: 'text-green-400' },
+                    { label: 'Forbedringer', value: improvements.length, color: 'text-amber-400' },
+                    { label: 'Øvelse', value: results.priority_drill ? '1' : '0', color: 'text-blue-400' },
+                  ].map(stat => (
+                    <div key={stat.label} className="flex flex-col items-center py-3 gap-0.5">
+                      <span className={`text-xl font-bold ${stat.color}`}>{stat.value}</span>
+                      <span className="text-white/30 text-xs">{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
               </motion.div>
 
-              {/* Tabs */}
+              {/* Tabs — always show label */}
               <motion.div variants={item} className="flex gap-1 rounded-xl bg-white/[0.04] p-1">
                 {tabs.map(tab => (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 relative ${
-                      activeTab === tab.key
-                        ? 'bg-white/10 text-white shadow-sm'
-                        : 'text-white/40 hover:text-white/70'
+                  <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                    className={`flex-1 flex flex-col items-center justify-center gap-1 py-2.5 px-1 rounded-lg transition-all duration-200 ${
+                      activeTab === tab.key ? 'bg-white/10 text-white' : 'text-white/35 hover:text-white/60'
                     }`}
                   >
-                    {tab.icon}
-                    <span className="hidden sm:inline">{tab.label}</span>
-                    {tab.badge && tab.badge > 0 && (
-                      <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center font-bold ${
-                        activeTab === tab.key ? 'bg-green-500 text-white' : 'bg-white/10 text-white/50'
-                      }`}>
-                        {tab.badge}
-                      </span>
-                    )}
+                    <div className="relative">
+                      {tab.icon}
+                      {tab.badge && tab.badge > 0 && (
+                        <span className={`absolute -top-1.5 -right-1.5 w-3.5 h-3.5 rounded-full text-[9px] flex items-center justify-center font-bold ${
+                          activeTab === tab.key ? 'bg-green-500 text-white' : 'bg-white/20 text-white/60'
+                        }`}>{tab.badge}</span>
+                      )}
+                    </div>
+                    <span className="text-[10px] font-medium leading-none">{tab.label}</span>
                   </button>
                 ))}
               </motion.div>
@@ -433,122 +452,239 @@ export default function Home() {
               {/* Tab content */}
               <AnimatePresence mode="wait">
 
-                {/* Photos tab */}
+                {/* ── PHOTOS TAB ── */}
                 {activeTab === 'photos' && (
-                  <motion.div key="photos" {...fadeUp}>
+                  <motion.div key="photos" {...fadeUp} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-white/40">Fire nøkkelbilder fra svingen din</p>
+                      {improvements.length > 0 && (
+                        <span className="text-[10px] text-red-400/70 flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                          = forbedringsområde
+                        </span>
+                      )}
+                    </div>
+
                     {results.keyframes && Object.keys(results.keyframes).length > 0 ? (
                       <div className="grid grid-cols-2 gap-2">
-                        {(['address','backswing_top','impact','follow_through'] as const).map(phase =>
-                          results.keyframes[phase] ? (
-                            <motion.div key={phase} variants={item}
-                              className="relative rounded-xl overflow-hidden border border-white/[0.06] group"
-                            >
-                              <img
-                                src={`data:image/jpeg;base64,${results.keyframes[phase]}`}
-                                alt={PHASE_LABELS[phase]}
-                                className="w-full aspect-[4/3] object-cover group-hover:scale-105 transition-transform duration-500"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                              {/* Phase badge */}
-                              <span className="absolute top-2 left-2 text-[10px] font-semibold bg-black/50 text-white/80 rounded-full px-2 py-0.5 backdrop-blur-sm">
-                                {PHASE_LABELS[phase]}
-                              </span>
-                              {/* Highlight improvements for this phase */}
-                              {improvements.filter((i: any) => i.phase === phase).length > 0 && (
-                                <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center shadow-lg">
-                                  <span className="text-white text-[10px] font-bold">
-                                    {improvements.filter((i: any) => i.phase === phase).length}
-                                  </span>
-                                </div>
-                              )}
+                        {(['address','backswing_top','impact','follow_through'] as const).map(phase => {
+                          const phaseIssues = improvements.filter((i: any) => i.phase === phase)
+                          return results.keyframes[phase] ? (
+                            <motion.div key={phase} variants={item} className="space-y-1.5">
+                              <div className="relative rounded-xl overflow-hidden border border-white/[0.06] group">
+                                <img
+                                  src={`data:image/jpeg;base64,${results.keyframes[phase]}`}
+                                  alt={PHASE_LABELS[phase]}
+                                  className="w-full aspect-[3/4] object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                                {phaseIssues.length > 0 && (
+                                  <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-lg shadow-red-500/30">
+                                    <span className="text-white text-xs font-bold">{phaseIssues.length}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-white text-xs font-semibold">{PHASE_LABELS[phase]}</p>
+                                {phaseIssues.length > 0 ? (
+                                  <p className="text-red-400/70 text-[10px] leading-tight mt-0.5 line-clamp-2">
+                                    {phaseIssues[0].area}
+                                    {phaseIssues.length > 1 ? ` +${phaseIssues.length - 1} til` : ''}
+                                  </p>
+                                ) : (
+                                  <p className="text-green-400/60 text-[10px] mt-0.5">Ser bra ut ✓</p>
+                                )}
+                              </div>
                             </motion.div>
                           ) : null
-                        )}
+                        })}
                       </div>
                     ) : (
-                      <div className="rounded-2xl border border-white/[0.06] p-8 text-center text-white/30 text-sm">
-                        Ingen bilder tilgjengelig
+                      <div className="rounded-2xl border border-white/[0.06] p-10 text-center space-y-2">
+                        <ImageIcon size={28} className="text-white/20 mx-auto" />
+                        <p className="text-white/40 text-sm">Bilder ikke tilgjengelig</p>
+                        <p className="text-white/20 text-xs">Prøv å laste opp en video med bedre belysning</p>
                       </div>
                     )}
+
+                    <button onClick={() => setActiveTab('improvements')}
+                      className="w-full py-3 rounded-xl border border-white/[0.06] text-white/40 hover:text-white/70 text-xs flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Target size={13} /> Se alle forbedringsdetaljer
+                    </button>
                   </motion.div>
                 )}
 
-                {/* Strengths tab */}
+                {/* ── STRENGTHS TAB ── */}
                 {activeTab === 'strengths' && (
-                  <motion.div key="strengths" {...fadeUp} className="space-y-2">
-                    {results.strengths?.map((s: string, i: number) => (
-                      <motion.div key={i} variants={item}
-                        className="flex gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3"
-                      >
-                        <CheckCircle2 size={16} className="text-green-500 shrink-0 mt-0.5" />
-                        <p className="text-sm text-white/80 leading-relaxed">{s}</p>
-                      </motion.div>
-                    ))}
+                  <motion.div key="strengths" {...fadeUp} className="space-y-3">
+                    <div className="rounded-xl bg-green-500/5 border border-green-500/15 px-4 py-3">
+                      <p className="text-green-400 text-xs font-semibold mb-0.5">Hva du gjør bra 💪</p>
+                      <p className="text-white/40 text-xs leading-relaxed">
+                        Dette er elementene instruktøren vil at du skal bevare og bygge videre på. Disse styrker svingen din.
+                      </p>
+                    </div>
+
+                    {results.strengths && results.strengths.length > 0 ? (
+                      <div className="space-y-2">
+                        {results.strengths.map((s: string, i: number) => (
+                          <motion.div key={i} variants={item}
+                            className="flex gap-3.5 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3.5"
+                          >
+                            <div className="w-7 h-7 rounded-full bg-green-500/15 border border-green-500/25 flex items-center justify-center shrink-0 mt-0.5">
+                              <CheckCircle2 size={14} className="text-green-400" />
+                            </div>
+                            <div>
+                              <p className="text-white/85 text-sm leading-relaxed">{s}</p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-white/[0.06] p-10 text-center space-y-2">
+                        <TrendingUp size={28} className="text-white/20 mx-auto" />
+                        <p className="text-white/40 text-sm">Ingen styrker identifisert</p>
+                        <p className="text-white/20 text-xs">Prøv med en klarere video i god belysning</p>
+                      </div>
+                    )}
+
+                    <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] px-4 py-3 text-center">
+                      <p className="text-white/30 text-xs leading-relaxed">
+                        💡 Behold disse elementene mens du jobber med forbedringene — de er grunnlaget din sving er bygget på.
+                      </p>
+                    </div>
                   </motion.div>
                 )}
 
-                {/* Improvements tab */}
+                {/* ── IMPROVEMENTS TAB ── */}
                 {activeTab === 'improvements' && (
                   <motion.div key="improvements" {...fadeUp} className="space-y-3">
-                    {visibleImprovements.map((imp: any, i: number) => {
-                      const impact = IMPACT_CONFIG[imp.impact as keyof typeof IMPACT_CONFIG] ?? IMPACT_CONFIG.medium
-                      return (
-                        <motion.div key={i} variants={item}
-                          className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4"
-                        >
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="w-5 h-5 rounded-md bg-amber-500/20 flex items-center justify-center text-amber-400 text-xs font-bold shrink-0">
-                                {i + 1}
-                              </span>
-                              <p className="text-sm font-semibold text-white">{imp.area}</p>
-                            </div>
-                            <span className={`text-[10px] font-semibold border rounded-full px-2 py-0.5 shrink-0 ${impact.bg} ${impact.color}`}>
-                              {impact.label}
-                            </span>
-                          </div>
-                          {imp.phase && (
-                            <p className="text-[11px] text-white/30 mb-2">
-                              📍 {PHASE_LABELS[imp.phase] ?? imp.phase}
-                            </p>
-                          )}
-                          <p className="text-sm text-red-400/80 mb-3 leading-relaxed">{imp.issue}</p>
-                          <div className="rounded-xl bg-green-500/8 border border-green-500/15 px-3 py-2.5">
-                            <p className="text-green-400 text-sm leading-relaxed">💡 {imp.tip}</p>
-                          </div>
-                        </motion.div>
-                      )
-                    })}
-                    {improvements.length > 2 && (
-                      <button
-                        onClick={() => setShowAllImprovements(!showAllImprovements)}
-                        className="w-full py-3 rounded-xl border border-white/[0.06] text-white/40 hover:text-white/70 text-sm flex items-center justify-center gap-2 transition-colors"
-                      >
-                        <ChevronDown size={15} className={`transition-transform ${showAllImprovements ? 'rotate-180' : ''}`} />
-                        {showAllImprovements ? 'Vis færre' : `Vis alle ${improvements.length} forbedringsområder`}
-                      </button>
+                    <div className="rounded-xl bg-amber-500/5 border border-amber-500/15 px-4 py-3">
+                      <p className="text-amber-400 text-xs font-semibold mb-0.5">Slik forbedrer du svingen din 🎯</p>
+                      <p className="text-white/40 text-xs leading-relaxed">
+                        Rangert etter effekt på prestasjon. Jobb med én forbedring om gangen for best resultat.
+                      </p>
+                    </div>
+
+                    {improvements.length > 0 ? (
+                      <div className="space-y-3">
+                        {improvements.map((imp: any, i: number) => {
+                          const impact = IMPACT_CONFIG[imp.impact as keyof typeof IMPACT_CONFIG] ?? IMPACT_CONFIG.medium
+                          return (
+                            <motion.div key={i} variants={item}
+                              className="rounded-2xl border border-white/[0.07] bg-white/[0.02] overflow-hidden"
+                            >
+                              {/* Header */}
+                              <div className="flex items-center gap-3 px-4 pt-4 pb-3">
+                                <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0">
+                                  <span className="text-amber-400 text-sm font-bold">{i + 1}</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white font-semibold text-sm">{imp.area}</p>
+                                  {imp.phase && (
+                                    <p className="text-white/30 text-[11px] mt-0.5">
+                                      📍 {PHASE_LABELS[imp.phase] ?? imp.phase}
+                                    </p>
+                                  )}
+                                </div>
+                                <span className={`text-[10px] font-semibold border rounded-full px-2 py-1 shrink-0 ${impact.bg} ${impact.color}`}>
+                                  {impact.label}
+                                </span>
+                              </div>
+
+                              {/* Problem */}
+                              <div className="mx-4 mb-3 rounded-xl bg-red-500/8 border border-red-500/15 px-3 py-2.5">
+                                <p className="text-[10px] font-semibold text-red-400/70 uppercase tracking-wider mb-1">Utfordring</p>
+                                <p className="text-red-300/80 text-sm leading-relaxed">{imp.issue}</p>
+                              </div>
+
+                              {/* Tip */}
+                              <div className="mx-4 mb-4 rounded-xl bg-green-500/8 border border-green-500/15 px-3 py-2.5">
+                                <p className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider mb-1">Råd fra instruktør</p>
+                                <p className="text-green-300/90 text-sm leading-relaxed">{imp.tip}</p>
+                              </div>
+                            </motion.div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-white/[0.06] p-10 text-center space-y-2">
+                        <Target size={28} className="text-white/20 mx-auto" />
+                        <p className="text-white/40 text-sm">Ingen forbedringsområder identifisert</p>
+                        <p className="text-white/20 text-xs">Svingen din ser ut til å være i god form!</p>
+                      </div>
                     )}
                   </motion.div>
                 )}
 
-                {/* Drill tab */}
+                {/* ── DRILL TAB ── */}
                 {activeTab === 'drill' && (
-                  <motion.div key="drill" {...fadeUp}>
-                    <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-5">
-                      <div className="flex items-center gap-2 mb-4">
-                        <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center">
-                          <Trophy size={15} className="text-amber-400" />
+                  <motion.div key="drill" {...fadeUp} className="space-y-3">
+
+                    {results.priority_drill ? (
+                      <>
+                        <div className="rounded-xl bg-amber-500/5 border border-amber-500/15 px-4 py-3">
+                          <p className="text-amber-400 text-xs font-semibold mb-0.5">Din prioriterte øvelse 🏆</p>
+                          <p className="text-white/40 text-xs leading-relaxed">
+                            Basert på analysen har AI-instruktøren valgt denne øvelsen fordi den gir størst forbedring akkurat nå.
+                          </p>
                         </div>
-                        <div>
-                          <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-widest">Prioritert øvelse</p>
-                          <p className="text-white font-semibold">{results.priority_drill?.name}</p>
+
+                        {/* Exercise card */}
+                        <div className="rounded-2xl border border-green-500/20 bg-green-500/[0.04] overflow-hidden">
+                          {/* Name + duration */}
+                          <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] font-semibold text-green-400/60 uppercase tracking-widest mb-1.5">Øvelsesnavn</p>
+                                <p className="text-white font-bold text-xl leading-tight">{results.priority_drill.name}</p>
+                              </div>
+                              <div className="shrink-0 flex flex-col items-center bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-2">
+                                <span className="text-green-400 text-lg font-bold leading-none">
+                                  {results.priority_drill.duration?.split(' ')[0] ?? '—'}
+                                </span>
+                                <span className="text-green-400/60 text-[10px] mt-0.5">
+                                  {results.priority_drill.duration?.split(' ').slice(1).join(' ') ?? 'min'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Description */}
+                          <div className="px-5 py-4 border-b border-white/[0.05]">
+                            <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-2">Slik gjør du det</p>
+                            <p className="text-white/70 text-sm leading-relaxed">{results.priority_drill.description}</p>
+                          </div>
+
+                          {/* Why this drill */}
+                          {improvements[0] && (
+                            <div className="px-5 py-4">
+                              <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-2">Hvorfor denne øvelsen</p>
+                              <div className="flex gap-2.5">
+                                <div className="w-1 rounded-full bg-amber-500/40 shrink-0" />
+                                <p className="text-white/50 text-xs leading-relaxed">
+                                  Øvelsen adresserer direkte <span className="text-amber-400">{improvements[0].area.toLowerCase()}</span> —
+                                  det forbedringsområdet som vil gi størst effekt på svingen din.
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </div>
+
+                        {/* Reminder */}
+                        <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] px-4 py-3 text-center">
+                          <p className="text-white/30 text-xs leading-relaxed">
+                            🔁 Gjenta denne øvelsen <strong className="text-white/50">3–5 ganger per treningsøkt</strong> for å bygge muskelminne. Last opp en ny video etter 2–3 uker for å se fremgang.
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-2xl border border-white/[0.06] p-10 text-center space-y-2">
+                        <Trophy size={28} className="text-white/20 mx-auto" />
+                        <p className="text-white/40 text-sm">Ingen øvelse anbefalt</p>
+                        <p className="text-white/20 text-xs">Prøv å laste opp en ny video med bedre vinkel</p>
                       </div>
-                      <p className="text-white/60 text-sm leading-relaxed mb-4">{results.priority_drill?.description}</p>
-                      <div className="inline-flex items-center gap-1.5 bg-green-500/10 border border-green-500/20 rounded-full px-3 py-1.5 text-xs text-green-400 font-medium">
-                        ⏱ {results.priority_drill?.duration}
-                      </div>
-                    </div>
+                    )}
                   </motion.div>
                 )}
 
