@@ -80,6 +80,7 @@ export default function Home() {
   const [onboardingDismissed, setOnboardingDismissed] = useState(true)
   const fileInputRef    = useRef<HTMLInputElement>(null)
   const cameraInputRef  = useRef<HTMLInputElement>(null)
+  const progressTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setOnboardingDismissed(localStorage.getItem(ONBOARDING_KEY) === 'true')
@@ -125,13 +126,14 @@ export default function Home() {
         onUploadProgress: (e) => {
           if (e.total && e.loaded >= e.total) {
             setStage('analyzing')
-            setTimeout(() => setStage('generating'), 8000)
+            progressTimer.current = setTimeout(() => setStage('generating'), 8000)
           }
         },
       })
       setResults(res.data)
       setStage('done')
     } catch (err: any) {
+      if (progressTimer.current) clearTimeout(progressTimer.current)
       setError(err.response?.data?.detail || 'Analyse feilet. Prøv igjen.')
       setStage('idle')
     }
