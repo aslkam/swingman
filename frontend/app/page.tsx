@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload, ChevronRight, RotateCcw, CheckCircle2, Loader2,
   Trophy, Zap, TrendingUp, Video, ImageIcon, Target, AlertCircle,
-  ChevronDown, Share2, X
+  Share2, X
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -76,7 +76,6 @@ export default function Home() {
   const [results, setResults]           = useState<any>(null)
   const [error, setError]               = useState<string | null>(null)
   const [activeTab, setActiveTab]       = useState<ResultTab>('photos')
-  const [showAllImprovements, setShowAllImprovements] = useState(false)
   const [onboardingDismissed, setOnboardingDismissed] = useState(true)
   const fileInputRef    = useRef<HTMLInputElement>(null)
   const cameraInputRef  = useRef<HTMLInputElement>(null)
@@ -84,6 +83,14 @@ export default function Home() {
 
   useEffect(() => {
     setOnboardingDismissed(localStorage.getItem(ONBOARDING_KEY) === 'true')
+  }, [])
+
+  useEffect(() => {
+    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
+  }, [previewUrl])
+
+  useEffect(() => {
+    return () => { if (progressTimer.current) clearTimeout(progressTimer.current) }
   }, [])
 
   const dismissOnboarding = () => {
@@ -143,11 +150,11 @@ export default function Home() {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     setVideoFile(null); setPreviewUrl(null)
     setResults(null); setError(null)
-    setStage('idle'); setShowAllImprovements(false)
+    setStage('idle')
   }
 
   const improvements = results?.improvements ?? []
-  const visibleImprovements = showAllImprovements ? improvements : improvements.slice(0, 2)
+  const score = results?.score ?? 70
 
   const tabs: { key: ResultTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: 'photos',       label: 'Bilder',     icon: <ImageIcon size={14} /> },
@@ -402,13 +409,11 @@ export default function Home() {
                 style={{ boxShadow: '0 0 50px rgba(34,197,94,0.07)' }}
               >
                 <div className="px-5 pt-5 pb-4 flex items-center gap-5">
-                  <ScoreArc score={results.score ?? 70} />
+                  <ScoreArc score={score} />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-green-400 uppercase tracking-widest mb-1">Din svingscore</p>
                     <p className="text-white font-bold text-lg leading-tight mb-2">
-                      {(results.score ?? 70) >= 80 ? 'Utmerket teknikk 🏌️' :
-                       (results.score ?? 70) >= 65 ? 'Godt grunnlag 👍' :
-                       (results.score ?? 70) >= 50 ? 'Under utvikling 📈' : 'Begynner 🌱'}
+                      {score >= 80 ? 'Utmerket teknikk 🏌️' : score >= 65 ? 'Godt grunnlag 👍' : score >= 50 ? 'Under utvikling 📈' : 'Begynner 🌱'}
                     </p>
                     <p className="text-white/50 text-sm leading-relaxed">{results.summary}</p>
                   </div>
@@ -534,9 +539,7 @@ export default function Home() {
                             <div className="w-7 h-7 rounded-full bg-green-500/15 border border-green-500/25 flex items-center justify-center shrink-0 mt-0.5">
                               <CheckCircle2 size={14} className="text-green-400" />
                             </div>
-                            <div>
-                              <p className="text-white/85 text-sm leading-relaxed">{s}</p>
-                            </div>
+                            <p className="text-white/85 text-sm leading-relaxed">{s}</p>
                           </motion.div>
                         ))}
                       </div>
@@ -639,14 +642,12 @@ export default function Home() {
                                 <p className="text-[10px] font-semibold text-green-400/60 uppercase tracking-widest mb-1.5">Øvelsesnavn</p>
                                 <p className="text-white font-bold text-xl leading-tight">{results.priority_drill.name}</p>
                               </div>
+                              {(() => { const [amt, ...unit] = results.priority_drill.duration?.split(' ') ?? []; return (
                               <div className="shrink-0 flex flex-col items-center bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-2">
-                                <span className="text-green-400 text-lg font-bold leading-none">
-                                  {results.priority_drill.duration?.split(' ')[0] ?? '—'}
-                                </span>
-                                <span className="text-green-400/60 text-[10px] mt-0.5">
-                                  {results.priority_drill.duration?.split(' ').slice(1).join(' ') ?? 'min'}
-                                </span>
+                                <span className="text-green-400 text-lg font-bold leading-none">{amt ?? '—'}</span>
+                                <span className="text-green-400/60 text-[10px] mt-0.5">{unit.join(' ') || 'min'}</span>
                               </div>
+                              ) })()}
                             </div>
                           </div>
 
