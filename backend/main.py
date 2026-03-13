@@ -195,13 +195,16 @@ Vær spesifikk — ikke generell. Referér til det du faktisk ser i bildene og/e
 
 Returner alltid svaret som gyldig JSON med denne strukturen:
 {
+  "score": 0-100,
   "summary": "2-3 setningers oppsummering",
   "strengths": ["styrke 1", "styrke 2"],
   "improvements": [
     {
       "area": "område",
       "issue": "konkret utfordring",
-      "tip": "spesifikk tips"
+      "tip": "spesifikk tips",
+      "impact": "high|medium|low",
+      "phase": "address|backswing_top|impact|follow_through"
     }
   ],
   "priority_drill": {
@@ -209,7 +212,11 @@ Returner alltid svaret som gyldig JSON med denne strukturen:
     "description": "beskrivelse",
     "duration": "varighet"
   }
-}"""
+}
+
+score er et tall mellom 0 og 100 som gjenspeiler den totale kvaliteten på svingen.
+impact angir hvor stor effekt forbedringen vil ha på svingen (high/medium/low).
+phase angir hvilken sving-fase forbedringen gjelder (bruk nøyaktig en av de fire verdiene)."""
 
     phase_labels = {
         'address': 'Adresse (utgangsstilling)',
