@@ -247,25 +247,25 @@ Gi konkret, vennlig og handlingsrettet feedback på norsk.
 Vær spesifikk — ikke generell. Referér til det du faktisk ser i bildene og/eller vinkeldataene.
 
 Returner alltid svaret som gyldig JSON med denne strukturen:
-{
+{{
   "score": 0-100,
   "summary": "2-3 setningers oppsummering",
   "strengths": ["styrke 1", "styrke 2"],
   "improvements": [
-    {
+    {{
       "area": "område",
       "issue": "konkret utfordring",
       "tip": "spesifikk tips",
       "impact": "high|medium|low",
       "phase": "address|backswing_top|impact|follow_through"
-    }
+    }}
   ],
-  "priority_drill": {
+  "priority_drill": {{
     "name": "navn på øvelse",
     "description": "beskrivelse",
     "duration": "varighet"
-  }
-}
+  }}
+}}
 
 score er et tall mellom 0 og 100 som gjenspeiler den totale kvaliteten på svingen.
 impact angir hvor stor effekt forbedringen vil ha på svingen (high/medium/low).
