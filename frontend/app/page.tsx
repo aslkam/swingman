@@ -5,12 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload, ChevronRight, RotateCcw, CheckCircle2, Loader2,
   Trophy, Zap, TrendingUp, Video, ImageIcon, Target, AlertCircle,
-  Share2, X
+  Share2, X, Clock, Check,
 } from 'lucide-react'
 import axios from 'axios'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
 const ONBOARDING_KEY = 'swingman_onboarding_dismissed'
+const HISTORY_KEY = 'swingman_history'
 
 const PHASE_LABELS: Record<string, string> = {
   address: 'Adresse',
@@ -27,6 +28,15 @@ const IMPACT_CONFIG = {
 
 type Stage = 'idle' | 'uploading' | 'analyzing' | 'generating' | 'done'
 type ResultTab = 'photos' | 'strengths' | 'improvements' | 'drill'
+type SkillLevel = 'nybegynner' | 'middels' | 'avansert'
+
+interface HistoryEntry {
+  id: string
+  date: string
+  score: number
+  summary: string
+  improvements_count: number
+}
 
 const STEPS = [
   { key: 'uploading',  label: 'Laster opp video',         sub: 'Sender fil til server...' },
@@ -38,6 +48,12 @@ const easing = [0.22, 1, 0.36, 1] as [number, number, number, number]
 const fadeUp = { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, exit: { opacity: 0, y: -8 }, transition: { duration: 0.4, ease: easing } }
 const stagger = { animate: { transition: { staggerChildren: 0.07 } } }
 const item = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.35, ease: easing } }
+
+function loadHistory(): HistoryEntry[] {
+  try {
+    return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
+  } catch { return [] }
+}
 
 function ScoreArc({ score }: { score: number }) {
   const r = 52
@@ -68,6 +84,88 @@ function ScoreArc({ score }: { score: number }) {
   )
 }
 
+function FilmingGuide({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: 'auto' }}
+      exit={{ opacity: 0, height: 0 }}
+      className="rounded-2xl border border-green-500/20 bg-green-500/5 p-4 overflow-hidden"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <p className="text-sm font-semibold text-green-400">Slik filmer du svingen</p>
+        <button onClick={onDismiss} className="text-white/30 hover:text-white/60 transition-colors -mt-0.5">
+          <X size={15} />
+        </button>
+      </div>
+
+      <div className="rounded-xl bg-black/25 overflow-hidden mb-3">
+        <svg viewBox="0 0 240 155" className="w-full" xmlns="http://www.w3.org/2000/svg">
+          {/* Ground */}
+          <line x1="20" y1="128" x2="220" y2="128" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+
+          {/* Golfer stick figure – side view */}
+          {/* Head */}
+          <circle cx="110" cy="55" r="9" fill="none" stroke="rgba(34,197,94,0.7)" strokeWidth="1.5" />
+          {/* Body */}
+          <line x1="110" y1="64" x2="110" y2="100" stroke="rgba(34,197,94,0.7)" strokeWidth="1.5" />
+          {/* Left arm */}
+          <line x1="110" y1="75" x2="94" y2="87" stroke="rgba(34,197,94,0.7)" strokeWidth="1.5" />
+          {/* Right arm */}
+          <line x1="110" y1="75" x2="126" y2="87" stroke="rgba(34,197,94,0.7)" strokeWidth="1.5" />
+          {/* Club */}
+          <line x1="94" y1="87" x2="88" y2="128" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+          {/* Left leg */}
+          <line x1="110" y1="100" x2="100" y2="128" stroke="rgba(34,197,94,0.7)" strokeWidth="1.5" />
+          {/* Right leg */}
+          <line x1="110" y1="100" x2="120" y2="128" stroke="rgba(34,197,94,0.7)" strokeWidth="1.5" />
+
+          {/* Phone / camera – right side */}
+          <rect x="168" y="84" width="18" height="28" rx="3"
+            fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.45)" strokeWidth="1.5" />
+          <rect x="170" y="87" width="14" height="18" rx="1" fill="rgba(255,255,255,0.08)" />
+          <circle cx="177" cy="86" r="2.5" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+
+          {/* Dashed camera line to golfer */}
+          <line x1="168" y1="98" x2="134" y2="98"
+            stroke="rgba(255,255,255,0.25)" strokeWidth="1" strokeDasharray="3,2" />
+          <polygon points="134,95 128,98 134,101" fill="rgba(255,255,255,0.25)" />
+
+          {/* 90° label */}
+          <text x="140" y="94" fill="rgba(255,255,255,0.3)" fontSize="8" fontFamily="sans-serif">90°</text>
+
+          {/* Distance bracket */}
+          <line x1="134" y1="116" x2="168" y2="116" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+          <line x1="134" y1="113" x2="134" y2="119" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+          <line x1="168" y1="113" x2="168" y2="119" stroke="rgba(255,255,255,0.18)" strokeWidth="1" />
+          <text x="151" y="112" textAnchor="middle" fill="rgba(255,255,255,0.28)" fontSize="7" fontFamily="sans-serif">2–3 m</text>
+
+          {/* Labels */}
+          <text x="110" y="145" textAnchor="middle" fill="rgba(34,197,94,0.55)" fontSize="8" fontFamily="sans-serif">Deg</text>
+          <text x="177" y="145" textAnchor="middle" fill="rgba(255,255,255,0.35)" fontSize="8" fontFamily="sans-serif">Telefon</text>
+        </svg>
+      </div>
+
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 mb-3">
+        {[
+          ['🌤', 'God belysning'],
+          ['👤', 'Hele kroppen i bildet'],
+          ['🎯', 'Stabil telefon'],
+          ['⏱', '5–15 sek er nok'],
+        ].map(([icon, text]) => (
+          <div key={text} className="flex items-center gap-1.5 text-xs text-white/50">
+            <span>{icon}</span><span>{text}</span>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={onDismiss} className="text-xs text-white/25 hover:text-white/45 transition-colors">
+        Ikke vis igjen
+      </button>
+    </motion.div>
+  )
+}
+
 export default function Home() {
   const [videoFile, setVideoFile]       = useState<File | null>(null)
   const [previewUrl, setPreviewUrl]     = useState<string | null>(null)
@@ -77,12 +175,19 @@ export default function Home() {
   const [error, setError]               = useState<string | null>(null)
   const [activeTab, setActiveTab]       = useState<ResultTab>('photos')
   const [onboardingDismissed, setOnboardingDismissed] = useState(true)
+  const [skillLevel, setSkillLevel]     = useState<SkillLevel>('middels')
+  const [history, setHistory]           = useState<HistoryEntry[]>([])
+  const [copied, setCopied]             = useState(false)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
   const fileInputRef    = useRef<HTMLInputElement>(null)
   const cameraInputRef  = useRef<HTMLInputElement>(null)
   const progressTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const elapsedTimer    = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     setOnboardingDismissed(localStorage.getItem(ONBOARDING_KEY) === 'true')
+    setHistory(loadHistory())
   }, [])
 
   useEffect(() => {
@@ -90,7 +195,10 @@ export default function Home() {
   }, [previewUrl])
 
   useEffect(() => {
-    return () => { if (progressTimer.current) clearTimeout(progressTimer.current) }
+    return () => {
+      if (progressTimer.current) clearTimeout(progressTimer.current)
+      if (elapsedTimer.current) clearInterval(elapsedTimer.current)
+    }
   }, [])
 
   const dismissOnboarding = () => {
@@ -125,32 +233,71 @@ export default function Home() {
   const handleAnalyze = async () => {
     if (!videoFile) return
     setError(null); setStage('uploading'); setActiveTab('photos')
+    setElapsedSeconds(0)
+
+    // Start elapsed timer
+    elapsedTimer.current = setInterval(() => {
+      setElapsedSeconds(s => s + 1)
+    }, 1000)
+
     try {
       const form = new FormData()
       form.append('file', videoFile)
+      form.append('skill_level', skillLevel)
+
       const res = await axios.post(`${BACKEND_URL}/analyze`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (e) => {
           if (e.total && e.loaded >= e.total) {
             setStage('analyzing')
-            progressTimer.current = setTimeout(() => setStage('generating'), 8000)
+            progressTimer.current = setTimeout(() => setStage('generating'), 2000)
           }
         },
       })
+
+      // Lagre til historikk
+      const entry: HistoryEntry = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        score: Number(res.data.score ?? 0),
+        summary: res.data.summary ?? '',
+        improvements_count: res.data.improvements?.length ?? 0,
+      }
+      const newHistory = [entry, ...loadHistory()].slice(0, 10)
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory))
+      setHistory(newHistory)
+
       setResults(res.data)
       setStage('done')
     } catch (err: any) {
       if (progressTimer.current) clearTimeout(progressTimer.current)
       setError(err.response?.data?.detail || 'Analyse feilet. Prøv igjen.')
       setStage('idle')
+    } finally {
+      if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     }
   }
 
   const handleReset = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
+    if (progressTimer.current) clearTimeout(progressTimer.current)
+    if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     setVideoFile(null); setPreviewUrl(null)
     setResults(null); setError(null)
-    setStage('idle')
+    setStage('idle'); setElapsedSeconds(0)
+  }
+
+  const handleShare = async () => {
+    const text = `Jeg fikk ${results?.score ?? '–'}/100 på Swingman! 🏌️\n${results?.summary ?? ''}\n\nhttps://swingman-six.vercel.app`
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Min svingscore', text }) } catch (_) {}
+    } else {
+      try {
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2500)
+      } catch (_) {}
+    }
   }
 
   const improvements = results?.improvements ?? []
@@ -198,37 +345,10 @@ export default function Home() {
           {stage === 'idle' && !results && (
             <motion.div key="upload" {...fadeUp} className="pt-6 space-y-4">
 
-              {/* Onboarding */}
+              {/* Filming guide */}
               <AnimatePresence>
                 {!onboardingDismissed && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="rounded-2xl border border-green-500/20 bg-green-500/5 p-4"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <p className="text-sm font-semibold text-green-400">Slik får du best analyse</p>
-                      <button onClick={dismissOnboarding} className="text-white/30 hover:text-white/60 transition-colors -mt-0.5">
-                        <X size={15} />
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mb-3">
-                      {[
-                        ['📐', 'Film fra siden (90°)'],
-                        ['🌤', 'God belysning'],
-                        ['👤', 'Hele kroppen i bildet'],
-                        ['⏱', '5–15 sekunder er nok'],
-                      ].map(([icon, text]) => (
-                        <div key={text} className="flex items-center gap-2 text-xs text-white/60">
-                          <span>{icon}</span><span>{text}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <button onClick={dismissOnboarding}
-                      className="text-xs text-white/30 hover:text-white/50 transition-colors">
-                      Ikke vis igjen
-                    </button>
-                  </motion.div>
+                  <FilmingGuide onDismiss={dismissOnboarding} />
                 )}
               </AnimatePresence>
 
@@ -304,6 +424,30 @@ export default function Home() {
                 </div>
               )}
 
+              {/* Skill level */}
+              <div className="space-y-2">
+                <p className="text-xs text-white/35 font-medium">Ditt nivå</p>
+                <div className="flex gap-2">
+                  {([
+                    ['nybegynner', '🌱', 'Nybegynner'],
+                    ['middels',    '⛳', 'Middels'],
+                    ['avansert',   '🏆', 'Avansert'],
+                  ] as const).map(([level, emoji, label]) => (
+                    <button
+                      key={level}
+                      onClick={() => setSkillLevel(level)}
+                      className={`flex-1 py-2.5 rounded-xl text-xs font-medium transition-all border ${
+                        skillLevel === level
+                          ? 'bg-green-500/15 border-green-500/35 text-green-400'
+                          : 'border-white/[0.08] text-white/30 hover:border-white/20 hover:text-white/55'
+                      }`}
+                    >
+                      {emoji} {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Error */}
               <AnimatePresence>
                 {error && (
@@ -334,6 +478,62 @@ export default function Home() {
                   {videoFile && <ChevronRight size={15} />}
                 </span>
               </motion.button>
+
+              {/* Historikk */}
+              {history.length > 0 && (
+                <div className="space-y-2.5 pt-1">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Clock size={11} className="text-white/25" />
+                      <p className="text-xs text-white/30 font-medium">Tidligere analyser</p>
+                    </div>
+                    <button
+                      onClick={() => { setHistory([]); localStorage.removeItem(HISTORY_KEY) }}
+                      className="text-[10px] text-white/20 hover:text-white/40 transition-colors"
+                    >Slett alt</button>
+                  </div>
+
+                  {history.length >= 2 && (
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${
+                      history[0].score > history[1].score
+                        ? 'bg-green-500/5 border-green-500/15'
+                        : history[0].score < history[1].score
+                          ? 'bg-red-500/5 border-red-500/15'
+                          : 'bg-white/[0.02] border-white/[0.05]'
+                    }`}>
+                      <TrendingUp size={11} className={history[0].score >= history[1].score ? 'text-green-400' : 'text-red-400'} />
+                      <p className="text-xs text-white/40">
+                        {history[0].score > history[1].score
+                          ? `+${history[0].score - history[1].score} poeng siden forrige analyse 🎉`
+                          : history[0].score < history[1].score
+                            ? `${history[0].score - history[1].score} poeng siden forrige analyse`
+                            : 'Samme score som sist'
+                        }
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    {history.slice(0, 3).map((entry) => (
+                      <div key={entry.id}
+                        className="flex items-center gap-3 rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2.5"
+                      >
+                        <span className={`text-xl font-bold tabular-nums leading-none shrink-0 ${
+                          entry.score >= 75 ? 'text-green-400' : entry.score >= 50 ? 'text-amber-400' : 'text-red-400'
+                        }`}>{entry.score}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white/50 text-xs leading-tight truncate">{entry.summary}</p>
+                          <p className="text-white/20 text-[10px] mt-0.5">
+                            {new Date(entry.date).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                        <span className="text-white/20 text-[10px] shrink-0">{entry.improvements_count} forb.</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </motion.div>
           )}
 
@@ -395,7 +595,9 @@ export default function Home() {
                   transition={{ duration: 0.6, ease: 'easeOut' }}
                 />
               </div>
-              <p className="text-center text-white/25 text-xs">Vanligvis 20–40 sekunder</p>
+              <p className="text-center text-white/25 text-xs">
+                {elapsedSeconds > 5 ? `${elapsedSeconds}s – vanligvis 20–40 sekunder` : 'Vanligvis 20–40 sekunder'}
+              </p>
             </motion.div>
           )}
 
@@ -418,7 +620,6 @@ export default function Home() {
                     <p className="text-white/50 text-sm leading-relaxed">{results.summary}</p>
                   </div>
                 </div>
-                {/* Quick stats */}
                 <div className="grid grid-cols-3 divide-x divide-white/[0.05] border-t border-white/[0.05]">
                   {[
                     { label: 'Styrker', value: results.strengths?.length ?? 0, color: 'text-green-400' },
@@ -433,7 +634,7 @@ export default function Home() {
                 </div>
               </motion.div>
 
-              {/* Tabs — always show label */}
+              {/* Tabs */}
               <motion.div variants={item} className="flex gap-1 rounded-xl bg-white/[0.04] p-1">
                 {tabs.map(tab => (
                   <button key={tab.key} onClick={() => setActiveTab(tab.key)}
@@ -526,7 +727,7 @@ export default function Home() {
                     <div className="rounded-xl bg-green-500/5 border border-green-500/15 px-4 py-3">
                       <p className="text-green-400 text-xs font-semibold mb-0.5">Hva du gjør bra 💪</p>
                       <p className="text-white/40 text-xs leading-relaxed">
-                        Dette er elementene instruktøren vil at du skal bevare og bygge videre på. Disse styrker svingen din.
+                        Dette er elementene instruktøren vil at du skal bevare og bygge videre på.
                       </p>
                     </div>
 
@@ -553,7 +754,7 @@ export default function Home() {
 
                     <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] px-4 py-3 text-center">
                       <p className="text-white/30 text-xs leading-relaxed">
-                        💡 Behold disse elementene mens du jobber med forbedringene — de er grunnlaget din sving er bygget på.
+                        💡 Behold disse elementene mens du jobber med forbedringene.
                       </p>
                     </div>
                   </motion.div>
@@ -565,7 +766,7 @@ export default function Home() {
                     <div className="rounded-xl bg-amber-500/5 border border-amber-500/15 px-4 py-3">
                       <p className="text-amber-400 text-xs font-semibold mb-0.5">Slik forbedrer du svingen din 🎯</p>
                       <p className="text-white/40 text-xs leading-relaxed">
-                        Rangert etter effekt på prestasjon. Jobb med én forbedring om gangen for best resultat.
+                        Rangert etter effekt på prestasjon. Jobb med én forbedring om gangen.
                       </p>
                     </div>
 
@@ -577,7 +778,6 @@ export default function Home() {
                             <motion.div key={i} variants={item}
                               className="rounded-2xl border border-white/[0.07] bg-white/[0.02] overflow-hidden"
                             >
-                              {/* Header */}
                               <div className="flex items-center gap-3 px-4 pt-4 pb-3">
                                 <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/20 flex items-center justify-center shrink-0">
                                   <span className="text-amber-400 text-sm font-bold">{i + 1}</span>
@@ -594,14 +794,10 @@ export default function Home() {
                                   {impact.label}
                                 </span>
                               </div>
-
-                              {/* Problem */}
                               <div className="mx-4 mb-3 rounded-xl bg-red-500/8 border border-red-500/15 px-3 py-2.5">
                                 <p className="text-[10px] font-semibold text-red-400/70 uppercase tracking-wider mb-1">Utfordring</p>
                                 <p className="text-red-300/80 text-sm leading-relaxed">{imp.issue}</p>
                               </div>
-
-                              {/* Tip */}
                               <div className="mx-4 mb-4 rounded-xl bg-green-500/8 border border-green-500/15 px-3 py-2.5">
                                 <p className="text-[10px] font-semibold text-green-400/70 uppercase tracking-wider mb-1">Råd fra instruktør</p>
                                 <p className="text-green-300/90 text-sm leading-relaxed">{imp.tip}</p>
@@ -623,19 +819,16 @@ export default function Home() {
                 {/* ── DRILL TAB ── */}
                 {activeTab === 'drill' && (
                   <motion.div key="drill" {...fadeUp} className="space-y-3">
-
                     {results.priority_drill ? (
                       <>
                         <div className="rounded-xl bg-amber-500/5 border border-amber-500/15 px-4 py-3">
                           <p className="text-amber-400 text-xs font-semibold mb-0.5">Din prioriterte øvelse 🏆</p>
                           <p className="text-white/40 text-xs leading-relaxed">
-                            Basert på analysen har AI-instruktøren valgt denne øvelsen fordi den gir størst forbedring akkurat nå.
+                            Basert på analysen har AI-instruktøren valgt denne øvelsen for størst forbedring akkurat nå.
                           </p>
                         </div>
 
-                        {/* Exercise card */}
                         <div className="rounded-2xl border border-green-500/20 bg-green-500/[0.04] overflow-hidden">
-                          {/* Name + duration */}
                           <div className="px-5 pt-5 pb-4 border-b border-white/[0.05]">
                             <div className="flex items-start justify-between gap-3">
                               <div>
@@ -650,14 +843,10 @@ export default function Home() {
                               ) })()}
                             </div>
                           </div>
-
-                          {/* Description */}
                           <div className="px-5 py-4 border-b border-white/[0.05]">
                             <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-2">Slik gjør du det</p>
                             <p className="text-white/70 text-sm leading-relaxed">{results.priority_drill.description}</p>
                           </div>
-
-                          {/* Why this drill */}
                           {improvements[0] && (
                             <div className="px-5 py-4">
                               <p className="text-[10px] font-semibold text-white/30 uppercase tracking-wider mb-2">Hvorfor denne øvelsen</p>
@@ -672,10 +861,9 @@ export default function Home() {
                           )}
                         </div>
 
-                        {/* Reminder */}
                         <div className="rounded-xl bg-white/[0.03] border border-white/[0.05] px-4 py-3 text-center">
                           <p className="text-white/30 text-xs leading-relaxed">
-                            🔁 Gjenta denne øvelsen <strong className="text-white/50">3–5 ganger per treningsøkt</strong> for å bygge muskelminne. Last opp en ny video etter 2–3 uker for å se fremgang.
+                            🔁 Gjenta <strong className="text-white/50">3–5 ganger per treningsøkt</strong> for å bygge muskelminne. Last opp en ny video etter 2–3 uker for å se fremgang.
                           </p>
                         </div>
                       </>
@@ -696,7 +884,7 @@ export default function Home() {
         </AnimatePresence>
       </main>
 
-      {/* Sticky bottom bar — only in results */}
+      {/* Sticky bottom bar */}
       <AnimatePresence>
         {stage === 'done' && results && (
           <motion.div
@@ -707,14 +895,15 @@ export default function Home() {
             <div className="max-w-xl mx-auto px-5 pb-5 pt-3 bg-gradient-to-t from-[#080810] via-[#080810]/95 to-transparent">
               <div className="flex gap-3">
                 <button
-                  onClick={() => {
-                    if (navigator.share) {
-                      navigator.share({ title: 'Min svingscore', text: `Jeg fikk ${results.score ?? '–'}/100 på Swingman!` })
-                    }
-                  }}
-                  className="flex items-center justify-center gap-2 py-3.5 px-5 rounded-xl border border-white/10 text-white/60 hover:text-white hover:border-white/20 text-sm font-medium transition-all"
+                  onClick={handleShare}
+                  className={`flex items-center justify-center gap-2 py-3.5 px-5 rounded-xl border text-sm font-medium transition-all ${
+                    copied
+                      ? 'border-green-500/30 text-green-400 bg-green-500/10'
+                      : 'border-white/10 text-white/60 hover:text-white hover:border-white/20'
+                  }`}
                 >
-                  <Share2 size={15} /> Del
+                  {copied ? <Check size={15} /> : <Share2 size={15} />}
+                  {copied ? 'Kopiert!' : 'Del'}
                 </button>
                 <button
                   onClick={handleReset}

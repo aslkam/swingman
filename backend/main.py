@@ -7,7 +7,7 @@ import json
 import base64
 import tempfile
 from pathlib import Path
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import cv2
@@ -51,6 +51,16 @@ KEY_FRAMES = {
 
 FRAME_SKIP = 5  # Analyze every 5th frame
 
+SKELETON_CONNECTIONS = [
+    (11, 12),           # skuldre
+    (11, 13), (13, 15), # venstre arm
+    (12, 14), (14, 16), # høyre arm
+    (11, 23), (12, 24), # torsosider
+    (23, 24),           # hofter
+    (23, 25), (25, 27), # venstre bein
+    (24, 26), (26, 28), # høyre bein
+]
+
 
 def calculate_angle(p1, p2, p3):
     """Calculate angle between three points"""
@@ -76,6 +86,34 @@ def frame_to_base64(frame, max_width=800) -> str:
         frame = cv2.resize(frame, (max_width, int(h * scale)))
     _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 75])
     return base64.standard_b64encode(buffer).decode('utf-8')
+
+
+def draw_skeleton(frame: np.ndarray, landmarks) -> np.ndarray:
+    """Tegner pose-skjelett på keyframe-bilde"""
+    h, w = frame.shape[:2]
+    overlay = frame.copy()
+
+    # Tegn forbindelseslinjer
+    for start_idx, end_idx in SKELETON_CONNECTIONS:
+        lm_s = landmarks[start_idx]
+        lm_e = landmarks[end_idx]
+        if lm_s.visibility < 0.3 or lm_e.visibility < 0.3:
+            continue
+        x1, y1 = int(lm_s.x * w), int(lm_s.y * h)
+        x2, y2 = int(lm_e.x * w), int(lm_e.y * h)
+        cv2.line(overlay, (x1, y1), (x2, y2), (0, 230, 80), 2, cv2.LINE_AA)
+
+    # Tegn leddpunkter
+    joint_indices = set(i for pair in SKELETON_CONNECTIONS for i in pair)
+    for idx in joint_indices:
+        lm = landmarks[idx]
+        if lm.visibility < 0.3:
+            continue
+        x, y = int(lm.x * w), int(lm.y * h)
+        cv2.circle(overlay, (x, y), 5, (255, 255, 255), -1, cv2.LINE_AA)
+        cv2.circle(overlay, (x, y), 5, (0, 180, 60), 1, cv2.LINE_AA)
+
+    return overlay
 
 
 def analyze_video(video_path: str) -> tuple[dict, dict]:
@@ -168,22 +206,37 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
         measurements['impact'] = frame_measurements[2 * len(frame_measurements) // 3]
         measurements['follow_through'] = frame_measurements[-1]
 
-    # Build keyframe images dict (phase -> base64)
+    # Bygg keyframe-bilder med skjelett-overlay
     phase_names = ['address', 'backswing_top', 'impact', 'follow_through']
     keyframe_images = {}
-    for phase, idx in zip(phase_names, key_frame_indices):
-        if idx in captured_frames:
-            keyframe_images[phase] = frame_to_base64(captured_frames[idx])
+    with mp_pose.Pose(static_image_mode=True, model_complexity=1) as kf_pose:
+        for phase, idx in zip(phase_names, key_frame_indices):
+            if idx in captured_frames:
+                frame = captured_frames[idx].copy()
+                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                kf_result = kf_pose.process(rgb)
+                if kf_result.pose_landmarks:
+                    frame = draw_skeleton(frame, kf_result.pose_landmarks.landmark)
+                keyframe_images[phase] = frame_to_base64(frame)
 
     return measurements, keyframe_images
 
 
-def get_coaching_feedback(measurements: dict, keyframe_images: dict) -> dict:
+SKILL_CONTEXT = {
+    "nybegynner": "Spilleren er nybegynner. Bruk enkelt språk, unngå teknisk sjargong, og gi oppmuntrende grunnleggende råd.",
+    "middels": "Spilleren er på middels nivå. Gi balansert teknisk feedback med konkrete og praktiske råd.",
+    "avansert": "Spilleren er avansert/erfaren golfer med lavt handicap. Bruk fagterminologi og gi dyptgående tekniske råd.",
+}
+
+
+def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level: str = "middels") -> dict:
     """Get Claude-based coaching feedback using both video frames and measurements"""
 
     data_text = json.dumps(measurements, indent=2, ensure_ascii=False)
+    skill_text = SKILL_CONTEXT.get(skill_level, SKILL_CONTEXT["middels"])
 
-    system_prompt = """Du er en profesjonell golfinstruktør med 20 års erfaring.
+    system_prompt = f"""Du er en profesjonell golfinstruktør med 20 års erfaring.
+{skill_text}
 Du mottar fire nøkkelbilder fra en golfsving (adresse, topp av backswing, impact, follow-through)
 samt biometriske målinger (kroppsvinkler) fra pose estimation.
 
@@ -291,7 +344,7 @@ async def health():
 
 
 @app.post("/analyze")
-async def analyze_swing(file: UploadFile = File(...)):
+async def analyze_swing(file: UploadFile = File(...), skill_level: str = Form(default="middels")):
     """
     Analyze a golf swing video
     
@@ -321,7 +374,7 @@ async def analyze_swing(file: UploadFile = File(...)):
                 raise HTTPException(status_code=400, detail="Kunne ikke analysere videoen. Prøv en annen video.")
 
             # Get coaching feedback
-            feedback = get_coaching_feedback(measurements, keyframe_images)
+            feedback = get_coaching_feedback(measurements, keyframe_images, skill_level)
             
             feedback['measurements'] = measurements
             feedback['keyframes'] = keyframe_images
