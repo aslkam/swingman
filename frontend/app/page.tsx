@@ -655,6 +655,54 @@ export default function Home() {
                 </p>
               </div>
 
+              {/* Demo teaser-card */}
+              <motion.button
+                whileTap={{ scale: 0.985 }}
+                onClick={handleDemo}
+                className="w-full text-left rounded-3xl overflow-hidden transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(5,150,105,0.07) 0%, rgba(16,185,129,0.04) 100%)',
+                  border: '1.5px solid rgba(5,150,105,0.2)',
+                  boxShadow: '0 2px 20px rgba(5,150,105,0.08), inset 0 1px 0 rgba(255,255,255,0.8)',
+                }}
+              >
+                <div className="px-5 py-4 flex items-center gap-4">
+                  {/* Mini score circle */}
+                  <div className="shrink-0 relative w-14 h-14">
+                    <svg width="56" height="56" viewBox="0 0 56 56">
+                      <circle cx="28" cy="28" r="22" fill="none" stroke="rgba(5,150,105,0.15)" strokeWidth="4" />
+                      <circle cx="28" cy="28" r="22" fill="none" stroke="#059669" strokeWidth="4"
+                        strokeLinecap="round"
+                        strokeDasharray={`${(62 / 100) * 2 * Math.PI * 22} ${2 * Math.PI * 22}`}
+                        transform="rotate(-90 28 28)"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-base font-bold text-emerald-700">62</span>
+                    </div>
+                  </div>
+
+                  {/* Tekst */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-bold text-emerald-700">Se eksempelanalyse</span>
+                      <span className="text-[10px] font-semibold text-emerald-600/70 bg-emerald-100 px-2 py-0.5 rounded-full">DEMO</span>
+                    </div>
+                    <p className="text-xs text-black/40 leading-relaxed">Skulderrotasjon, hoftevinkel, venstre arm — og konkrete øvelser. Ingen video nødvendig.</p>
+                  </div>
+
+                  <ChevronRight size={16} className="text-emerald-600 shrink-0" />
+                </div>
+
+                {/* Strek med score-prikker */}
+                <div className="px-5 pb-3.5 flex items-center gap-1.5">
+                  {['Skulder 73°', 'Hofte 38°', 'Rygg 48°'].map((label) => (
+                    <span key={label} className="text-[10px] text-emerald-700/60 bg-emerald-50 border border-emerald-200/60 px-2 py-0.5 rounded-full">{label}</span>
+                  ))}
+                  <span className="text-[10px] text-black/25 ml-1">+4 forbedringer</span>
+                </div>
+              </motion.button>
+
               {/* Drop zone */}
               <div
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
@@ -1131,21 +1179,6 @@ export default function Home() {
                 </span>
               </motion.button>
 
-              {/* Demo-knapp */}
-              {!videoFile && (
-                <motion.button
-                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={handleDemo}
-                  className="w-full py-3 rounded-2xl font-medium text-sm transition-all"
-                  style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.45)' }}
-                >
-                  <span className="flex items-center justify-center gap-2">
-                    <BookOpen size={15} />
-                    Se eksempelanalyse
-                  </span>
-                </motion.button>
-              )}
             </div>
           </motion.div>
         )}
