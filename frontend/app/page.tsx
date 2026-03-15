@@ -4,8 +4,8 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload, ChevronRight, RotateCcw, CheckCircle2, Loader2,
-  TrendingUp, Video, AlertCircle, Share2, X, Clock, Check,
-  Sparkles,
+  TrendingUp, AlertCircle, Share2, X, Clock, Check,
+  Sparkles, Info, BookOpen,
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -24,6 +24,27 @@ const IMPACT_CONFIG = {
   medium: { label: 'Middels',    pill: 'bg-amber-50 border-amber-200 text-amber-600' },
   low:    { label: 'Lav',        pill: 'bg-slate-100 border-slate-200 text-slate-500' },
 }
+
+const SKILL_LEVELS = [
+  {
+    key: 'nybegynner' as const,
+    label: 'Nybegynner',
+    emoji: '🌱',
+    desc: 'Ny i golf eller spiller sjeldnere enn månedlig. AI-en gir enkle, konkrete råd om grunnleggende teknikk og holder forklaringene korte.',
+  },
+  {
+    key: 'middels' as const,
+    label: 'Middels',
+    emoji: '⛳',
+    desc: 'Spiller regelmessig og kjenner grunnleggende teknikk. Handicap 18–36 eller tilsvarende. AI-en gir mer detaljerte tekniske råd.',
+  },
+  {
+    key: 'avansert' as const,
+    label: 'Avansert',
+    emoji: '🏆',
+    desc: 'Erfaren spiller med stabil teknikk og handicap under 18. AI-en bruker golfterminologi og gir presise, avanserte justeringer.',
+  },
+]
 
 const GOLF_TIPS = [
   '70% av alle golfslag skjer innen 100 meter fra hullet — kortspillet er nøkkelen.',
@@ -86,32 +107,68 @@ const glass: React.CSSProperties = {
 
 // ─── ScoreRing ────────────────────────────────────────────────────────────────
 
-function ScoreRing({ score }: { score: number }) {
+function ScoreRing({ score, showInfo, onToggleInfo }: { score: number; showInfo: boolean; onToggleInfo: () => void }) {
   const s = 200, r = 82, cx = 100, cy = 100
   const circ   = 2 * Math.PI * r
   const filled = (score / 100) * circ
   const color  = score >= 75 ? '#059669' : score >= 50 ? '#d97706' : '#dc2626'
   return (
-    <div className="relative inline-flex">
-      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
-        <defs>
-          <filter id="rg" x="-60%" y="-60%" width="220%" height="220%">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b" />
-            <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-          </filter>
-        </defs>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.07)" strokeWidth="10" />
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={`${filled} ${circ - filled}`}
-          transform={`rotate(-90 ${cx} ${cy})`}
-          filter="url(#rg)"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-[4rem] font-bold tracking-tight tabular-nums leading-none" style={{ color: '#1d1d1f' }}>{score}</span>
-        <span className="text-sm text-black/35 tracking-widest uppercase mt-2 font-medium">av 100</span>
+    <div className="flex flex-col items-center gap-3">
+      <div className="relative inline-flex">
+        <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`}>
+          <defs>
+            <filter id="rg" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(0,0,0,0.07)" strokeWidth="10" />
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={`${filled} ${circ - filled}`}
+            transform={`rotate(-90 ${cx} ${cy})`}
+            filter="url(#rg)"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-[4rem] font-bold tracking-tight tabular-nums leading-none" style={{ color: '#1d1d1f' }}>{score}</span>
+          <span className="text-sm text-black/35 tracking-widest uppercase mt-2 font-medium">av 100</span>
+        </div>
       </div>
+
+      {/* Info toggle */}
+      <button onClick={onToggleInfo}
+        className="flex items-center gap-1.5 text-sm text-black/35 hover:text-black/60 transition-colors"
+      >
+        <Info size={14} />
+        {showInfo ? 'Skjul forklaring' : 'Hva betyr dette?'}
+      </button>
+
+      {/* Score explanation */}
+      <AnimatePresence>
+        {showInfo && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="w-full overflow-hidden"
+          >
+            <div className="rounded-2xl px-4 py-3" style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.07)' }}>
+              <div className="flex justify-between text-xs text-black/40 mb-2">
+                <span>0 — Nybegynner</span>
+                <span>50 — Hobbyspiller</span>
+                <span>100 — Tour-proff</span>
+              </div>
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.07)' }}>
+                <div className="h-full rounded-full" style={{ background: 'linear-gradient(90deg, #dc2626, #d97706, #059669)', width: '100%' }} />
+              </div>
+              <p className="text-sm text-black/50 mt-2.5 leading-relaxed">
+                Scoren beregnes av AI-en basert på din teknikk i alle fire sving-faser. En score på <strong className="text-black/70">{score}</strong> betyr at du er på nivå med en typisk{' '}
+                {score >= 80 ? 'lavhandicap-spiller' : score >= 65 ? 'erfaren amatørspiller' : score >= 50 ? 'vanlig weekendspiller' : 'nybegynner'}.
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
@@ -181,43 +238,92 @@ function FilmingGuide({ onDismiss }: { onDismiss: () => void }) {
   )
 }
 
+// ─── SkillSlider ──────────────────────────────────────────────────────────────
+
+function SkillSlider({ value, onChange }: { value: SkillLevel; onChange: (v: SkillLevel) => void }) {
+  const idx = SKILL_LEVELS.findIndex(s => s.key === value)
+  const current = SKILL_LEVELS[idx]
+  return (
+    <div className="space-y-4">
+      <p className="text-xs font-semibold text-black/35 uppercase tracking-widest">Ditt spillnivå</p>
+
+      {/* Slider */}
+      <div className="px-1">
+        <input
+          type="range" min={0} max={2} step={1} value={idx}
+          onChange={e => onChange(SKILL_LEVELS[+e.target.value].key)}
+          className="skill-slider"
+          style={{
+            background: `linear-gradient(to right, #059669 0%, #059669 ${idx * 50}%, rgba(0,0,0,0.1) ${idx * 50}%, rgba(0,0,0,0.1) 100%)`
+          }}
+        />
+        {/* Labels */}
+        <div className="flex justify-between mt-2.5">
+          {SKILL_LEVELS.map((s, i) => (
+            <button key={s.key} onClick={() => onChange(s.key)}
+              className="flex flex-col items-center gap-0.5 transition-all"
+              style={{ opacity: i === idx ? 1 : 0.35 }}>
+              <span className="text-xl">{s.emoji}</span>
+              <span className={`text-xs font-semibold ${i === idx ? 'text-emerald-700' : 'text-black/40'}`}>{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Description */}
+      <AnimatePresence mode="wait">
+        <motion.div key={value}
+          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.25 }}
+          className="rounded-2xl px-4 py-3.5"
+          style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)' }}
+        >
+          <p className="text-sm text-black/60 leading-relaxed">{current.desc}</p>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [videoFile, setVideoFile]   = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [stage, setStage]           = useState<Stage>('idle')
-  const [results, setResults]       = useState<any>(null)
-  const [error, setError]           = useState<string | null>(null)
-  const [skillLevel, setSkillLevel] = useState<SkillLevel>('middels')
-  const [history, setHistory]       = useState<HistoryEntry[]>([])
-  const [copied, setCopied]         = useState(false)
+  const [videoFile, setVideoFile]       = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl]     = useState<string | null>(null)
+  const [thumbnail, setThumbnail]       = useState<string | null>(null)
+  const [isDragging, setIsDragging]     = useState(false)
+  const [stage, setStage]               = useState<Stage>('idle')
+  const [results, setResults]           = useState<any>(null)
+  const [error, setError]               = useState<string | null>(null)
+  const [skillLevel, setSkillLevel]     = useState<SkillLevel>('middels')
+  const [history, setHistory]           = useState<HistoryEntry[]>([])
+  const [copied, setCopied]             = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [tipIndex, setTipIndex]     = useState(0)
-  const [tipVisible, setTipVisible] = useState(true)
-  const [onboardingDismissed, setOnboardingDismissed] = useState(true)
+  const [tipIndex, setTipIndex]         = useState(0)
+  const [tipVisible, setTipVisible]     = useState(true)
+  const [guideVisible, setGuideVisible] = useState(false)
+  const [scoreInfoOpen, setScoreInfoOpen] = useState(false)
 
   const fileInputRef   = useRef<HTMLInputElement>(null)
-  const cameraInputRef = useRef<HTMLInputElement>(null)
   const progressTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const elapsedTimer   = useRef<ReturnType<typeof setInterval> | null>(null)
   const tipTimer       = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    setOnboardingDismissed(localStorage.getItem(ONBOARDING_KEY) === 'true')
+    const dismissed = localStorage.getItem(ONBOARDING_KEY) === 'true'
+    setGuideVisible(!dismissed)
     setHistory(loadHistory())
     setTipIndex(Math.floor(Math.random() * GOLF_TIPS.length))
   }, [])
 
-  useEffect(() => { return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) } }, [previewUrl])
   useEffect(() => {
     return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
       if (progressTimer.current) clearTimeout(progressTimer.current)
       if (elapsedTimer.current)  clearInterval(elapsedTimer.current)
       if (tipTimer.current)      clearInterval(tipTimer.current)
     }
-  }, [])
+  }, [previewUrl])
 
   const isAnalyzing = ['uploading','analyzing','generating'].includes(stage)
   useEffect(() => {
@@ -229,13 +335,42 @@ export default function Home() {
     return () => { if (tipTimer.current) clearInterval(tipTimer.current) }
   }, [isAnalyzing])
 
-  const dismissOnboarding = () => { localStorage.setItem(ONBOARDING_KEY, 'true'); setOnboardingDismissed(true) }
-  const currentStepIndex  = STEPS.findIndex(s => s.key === stage)
+  const dismissGuide = () => {
+    localStorage.setItem(ONBOARDING_KEY, 'true')
+    setGuideVisible(false)
+  }
 
-  const pickFile = useCallback((file: File) => {
+  const currentStepIndex = STEPS.findIndex(s => s.key === stage)
+
+  // Capture video thumbnail from first frame
+  const captureThumbnail = (file: File, objectUrl: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const video = document.createElement('video')
+      const canvas = document.createElement('canvas')
+      video.src = objectUrl
+      video.muted = true
+      video.playsInline = true
+      video.addEventListener('loadeddata', () => {
+        video.currentTime = 0.5
+      })
+      video.addEventListener('seeked', () => {
+        canvas.width  = video.videoWidth  || 640
+        canvas.height = video.videoHeight || 480
+        canvas.getContext('2d')?.drawImage(video, 0, 0)
+        resolve(canvas.toDataURL('image/jpeg', 0.85))
+      })
+      video.addEventListener('error', () => resolve(''))
+      setTimeout(() => resolve(''), 5000) // fallback
+    })
+  }
+
+  const pickFile = useCallback(async (file: File) => {
     if (file.size > 50 * 1024 * 1024) { setError('Videoen er for stor. Maks 50 MB.'); return }
     if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setVideoFile(file); setPreviewUrl(URL.createObjectURL(file)); setError(null); setResults(null)
+    const url = URL.createObjectURL(file)
+    setVideoFile(file); setPreviewUrl(url); setError(null); setResults(null); setThumbnail(null)
+    const thumb = await captureThumbnail(file, url)
+    setThumbnail(thumb || null)
   }, [previewUrl])
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFile(f) }
@@ -278,7 +413,8 @@ export default function Home() {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     if (progressTimer.current) clearTimeout(progressTimer.current)
     if (elapsedTimer.current) clearInterval(elapsedTimer.current)
-    setVideoFile(null); setPreviewUrl(null); setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0)
+    setVideoFile(null); setPreviewUrl(null); setThumbnail(null)
+    setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0)
   }
 
   const handleShare = async () => {
@@ -312,12 +448,26 @@ export default function Home() {
             </div>
             <span className="font-semibold tracking-tight text-base" style={{ color: '#1d1d1f' }}>Swingman</span>
           </div>
-          {results && (
-            <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={handleReset}
-              className="flex items-center gap-1.5 text-sm text-black/40 hover:text-black/70 transition-colors font-medium">
-              <RotateCcw size={13} /> Ny analyse
-            </motion.button>
-          )}
+          <div className="flex items-center gap-3">
+            {/* Guide toggle */}
+            {stage === 'idle' && !results && (
+              <button onClick={() => setGuideVisible(v => !v)}
+                className={`flex items-center gap-1.5 text-sm font-medium transition-colors px-3 py-1.5 rounded-full ${
+                  guideVisible
+                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                    : 'text-black/35 hover:text-black/60'
+                }`}>
+                <BookOpen size={14} />
+                Guide
+              </button>
+            )}
+            {results && (
+              <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} onClick={handleReset}
+                className="flex items-center gap-1.5 text-sm text-black/40 hover:text-black/70 transition-colors font-medium">
+                <RotateCcw size={13} /> Ny analyse
+              </motion.button>
+            )}
+          </div>
         </div>
       </header>
 
@@ -326,14 +476,15 @@ export default function Home() {
 
           {/* ══════════════════════ UPLOAD ══════════════════════ */}
           {stage === 'idle' && !results && (
-            <motion.div key="upload" {...fadeUp} className="pt-6 space-y-4">
+            <motion.div key="upload" {...fadeUp} className="pt-6 space-y-5">
 
+              {/* Filming guide (toggle) */}
               <AnimatePresence>
-                {!onboardingDismissed && <FilmingGuide onDismiss={dismissOnboarding} />}
+                {guideVisible && <FilmingGuide onDismiss={dismissGuide} />}
               </AnimatePresence>
 
               {/* Hero */}
-              <div className="pt-2 pb-1">
+              <div className="pt-1 pb-1">
                 <h1 className="text-4xl font-bold tracking-tight leading-[1.1]" style={{ color: '#1d1d1f' }}>
                   Analyser<br />
                   <span style={{
@@ -351,7 +502,7 @@ export default function Home() {
                 onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={onDrop}
-                onClick={() => !previewUrl && fileInputRef.current?.click()}
+                onClick={() => !videoFile && fileInputRef.current?.click()}
                 className="rounded-3xl border-2 transition-all duration-300 overflow-hidden cursor-pointer"
                 style={{
                   borderColor: isDragging ? '#34d399' : 'rgba(0,0,0,0.1)',
@@ -362,18 +513,30 @@ export default function Home() {
                     : '0 2px 24px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
                 }}
               >
-                <input ref={fileInputRef}   type="file" accept="video/mp4,video/quicktime,video/*" onChange={onFileChange} className="hidden" />
-                <input ref={cameraInputRef} type="file" accept="video/*" capture="environment"     onChange={onFileChange} className="hidden" />
+                <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/*" onChange={onFileChange} className="hidden" />
 
-                {previewUrl ? (
+                {videoFile ? (
+                  /* ── Video klar: vis thumbnail ── */
                   <div className="relative">
-                    <video src={previewUrl} className="w-full max-h-60 object-cover" playsInline muted />
+                    {thumbnail ? (
+                      <img src={thumbnail} alt="Video-forhåndsvisning"
+                        className="w-full max-h-64 object-cover" />
+                    ) : (
+                      <div className="w-full h-48 flex items-center justify-center bg-emerald-50">
+                        <Loader2 size={24} className="text-emerald-400 animate-spin" />
+                      </div>
+                    )}
                     <div className="absolute inset-0"
-                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)' }} />
+                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)' }} />
+                    {/* Spill-av-ikon indikator */}
+                    <div className="absolute top-3 left-3 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 border border-white/20">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-white text-xs font-semibold">Video klar</span>
+                    </div>
                     <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
                       <div>
-                        <p className="text-white text-sm font-semibold truncate max-w-[180px]">{videoFile?.name}</p>
-                        <p className="text-white/60 text-xs mt-0.5">{videoFile && (videoFile.size/1024/1024).toFixed(1)} MB</p>
+                        <p className="text-white text-sm font-semibold truncate max-w-[200px]">{videoFile.name}</p>
+                        <p className="text-white/60 text-xs mt-0.5">{(videoFile.size/1024/1024).toFixed(1)} MB</p>
                       </div>
                       <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
                         className="text-sm text-white/80 rounded-full px-4 py-1.5 hover:text-white transition-colors font-medium"
@@ -382,53 +545,23 @@ export default function Home() {
                     </div>
                   </div>
                 ) : (
+                  /* ── Ingen video: upload-prompt ── */
                   <div className="py-14 flex flex-col items-center gap-4">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
                       style={{ background: 'rgba(5,150,105,0.1)', border: '1px solid rgba(5,150,105,0.2)' }}>
                       <Upload size={26} className="text-emerald-600" />
                     </div>
                     <div className="text-center space-y-1.5">
-                      <p className="text-gray-900 font-semibold text-lg">Dra video hit</p>
-                      <p className="text-black/40 text-base">eller velg fra enhet</p>
+                      <p className="text-gray-900 font-semibold text-lg">Trykk for å velge video</p>
+                      <p className="text-black/40 text-base">eller dra og slipp her</p>
                     </div>
                     <p className="text-black/25 text-sm tracking-wide">MP4 · MOV · maks 50 MB</p>
                   </div>
                 )}
               </div>
 
-              {/* Pick / camera */}
-              {!previewUrl && (
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'Film nå',  icon: <Video size={16}/>,  ref: cameraInputRef },
-                    { label: 'Velg fil', icon: <Upload size={16}/>, ref: fileInputRef },
-                  ].map(({ label, icon, ref }) => (
-                    <button key={label} onClick={() => ref.current?.click()}
-                      className="flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold text-black/50 hover:text-black/80 transition-all"
-                      style={{ border: '1px solid rgba(0,0,0,0.09)', background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(20px)' }}
-                    >{icon}{label}</button>
-                  ))}
-                </div>
-              )}
-
-              {/* Skill level */}
-              <div className="space-y-2.5">
-                <p className="text-xs font-semibold text-black/35 uppercase tracking-widest pl-0.5">Ditt spillnivå</p>
-                <div className="flex gap-2">
-                  {([['nybegynner','🌱','Nybegynner'],['middels','⛳','Middels'],['avansert','🏆','Avansert']] as const).map(([level, emoji, label]) => (
-                    <button key={level} onClick={() => setSkillLevel(level)}
-                      className="flex-1 py-3 rounded-2xl text-sm font-semibold transition-all duration-200"
-                      style={{
-                        border: skillLevel === level ? '1.5px solid #059669' : '1px solid rgba(0,0,0,0.09)',
-                        background: skillLevel === level ? 'rgba(5,150,105,0.09)' : 'rgba(255,255,255,0.65)',
-                        color: skillLevel === level ? '#059669' : 'rgba(0,0,0,0.4)',
-                        backdropFilter: 'blur(20px)',
-                        boxShadow: skillLevel === level ? '0 0 0 3px rgba(5,150,105,0.1)' : 'none',
-                      }}
-                    >{emoji} {label}</button>
-                  ))}
-                </div>
-              </div>
+              {/* Skill slider */}
+              <SkillSlider value={skillLevel} onChange={setSkillLevel} />
 
               {/* History */}
               {history.length > 0 && (
@@ -441,11 +574,10 @@ export default function Home() {
                       className="text-sm text-black/25 hover:text-black/50 transition-colors">Slett</button>
                   </div>
                   {history.length >= 2 && (
-                    <div className="rounded-2xl px-4 py-3 flex items-center gap-3"
-                      style={{
-                        border: `1px solid ${history[0].score > history[1].score ? 'rgba(5,150,105,0.2)' : 'rgba(0,0,0,0.07)'}`,
-                        background: history[0].score > history[1].score ? 'rgba(5,150,105,0.06)' : 'rgba(255,255,255,0.6)',
-                      }}>
+                    <div className="rounded-2xl px-4 py-3 flex items-center gap-3" style={{
+                      border: `1px solid ${history[0].score > history[1].score ? 'rgba(5,150,105,0.2)' : 'rgba(0,0,0,0.07)'}`,
+                      background: history[0].score > history[1].score ? 'rgba(5,150,105,0.06)' : 'rgba(255,255,255,0.6)',
+                    }}>
                       <TrendingUp size={14} className={history[0].score >= history[1].score ? 'text-emerald-600' : 'text-rose-500'} />
                       <p className="text-sm text-black/55">
                         {history[0].score > history[1].score
@@ -477,8 +609,6 @@ export default function Home() {
           {/* ══════════════════════ PROGRESS ══════════════════════ */}
           {isAnalyzing && (
             <motion.div key="progress" {...fadeUp} className="pt-16 pb-8 space-y-8 text-center">
-
-              {/* Pulsing orb + spinner */}
               <div className="flex flex-col items-center gap-6">
                 <div className="relative">
                   <motion.div
@@ -498,7 +628,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Step pills */}
               <div className="flex items-center justify-center gap-2">
                 {STEPS.map((step, idx) => {
                   const done   = idx < currentStepIndex
@@ -512,11 +641,9 @@ export default function Home() {
                           color: done ? '#059669' : active ? '#1d1d1f' : 'rgba(0,0,0,0.25)',
                           boxShadow: active ? '0 2px 16px rgba(0,0,0,0.06)' : 'none',
                         }}>
-                        {done
-                          ? <CheckCircle2 size={13} />
-                          : active
-                            ? <motion.div animate={{ scale: [1, 1.4, 1] }} transition={{ duration: 1, repeat: Infinity }} className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                            : <div className="w-1.5 h-1.5 rounded-full bg-black/15" />
+                        {done ? <CheckCircle2 size={13} />
+                          : active ? <motion.div animate={{ scale: [1,1.4,1] }} transition={{ duration: 1, repeat: Infinity }} className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
+                          : <div className="w-1.5 h-1.5 rounded-full bg-black/15" />
                         }
                         {active && <span>{step.label}</span>}
                       </div>
@@ -526,7 +653,6 @@ export default function Home() {
                 })}
               </div>
 
-              {/* Progress bar */}
               <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.07)' }}>
                 <motion.div className="h-full rounded-full"
                   animate={{ width: `${((currentStepIndex + 1) / STEPS.length) * 100}%` }}
@@ -535,7 +661,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* Tips */}
               <div className="rounded-3xl text-left px-6 py-5"
                 style={{ ...glass, border: '1px solid rgba(0,0,0,0.07)' }}>
                 <p className="text-xs font-bold text-emerald-600/70 uppercase tracking-widest mb-3">Visste du at...</p>
@@ -558,17 +683,23 @@ export default function Home() {
             <motion.div key="results" variants={stagger} initial="initial" animate="animate" className="pt-5 space-y-5">
 
               {/* Score card */}
-              <motion.div variants={item} className="rounded-3xl overflow-hidden text-center"
+              <motion.div variants={item} className="rounded-3xl overflow-hidden"
                 style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 4px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
                 <div className="px-6 pt-7 pb-5">
-                  <p className="text-xs font-bold text-emerald-600/70 uppercase tracking-widest mb-5">Din svingscore</p>
-                  <div className="flex justify-center mb-4">
-                    <ScoreRing score={score} />
+                  <p className="text-xs font-bold text-emerald-600/70 uppercase tracking-widest mb-5 text-center">Din svingscore</p>
+                  <div className="flex justify-center">
+                    <ScoreRing
+                      score={score}
+                      showInfo={scoreInfoOpen}
+                      onToggleInfo={() => setScoreInfoOpen(v => !v)}
+                    />
                   </div>
-                  <p className="text-gray-900 font-bold text-2xl tracking-tight mb-2">
-                    {score >= 80 ? 'Utmerket teknikk 🏌️' : score >= 65 ? 'Godt grunnlag 👍' : score >= 50 ? 'Under utvikling 📈' : 'Begynner 🌱'}
-                  </p>
-                  <p className="text-black/50 text-base leading-relaxed max-w-xs mx-auto">{results.summary}</p>
+                  <div className="mt-5 text-center">
+                    <p className="text-gray-900 font-bold text-2xl tracking-tight mb-2">
+                      {score >= 80 ? 'Utmerket teknikk 🏌️' : score >= 65 ? 'Godt grunnlag 👍' : score >= 50 ? 'Under utvikling 📈' : 'Begynner 🌱'}
+                    </p>
+                    <p className="text-black/50 text-base leading-relaxed max-w-xs mx-auto">{results.summary}</p>
+                  </div>
                 </div>
                 <div className="grid grid-cols-3 divide-x divide-black/[0.06]" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
                   {[
@@ -688,31 +819,41 @@ export default function Home() {
                 </motion.div>
               )}
 
-              {/* Øvelse */}
+              {/* Prioritert øvelse */}
               {results.priority_drill && (
                 <motion.div variants={item} className="space-y-3">
                   <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Prioritert øvelse</p>
                   <div className="rounded-3xl overflow-hidden"
                     style={{ background: 'rgba(240,253,244,0.9)', border: '1.5px solid rgba(5,150,105,0.2)', backdropFilter: 'blur(40px)', boxShadow: '0 2px 32px rgba(5,150,105,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
-                    <div className="px-5 pt-6 pb-4 flex items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest mb-2">Øvelse</p>
-                        <p className="text-gray-900 font-bold text-2xl tracking-tight leading-tight">{results.priority_drill.name}</p>
-                      </div>
-                      <div className="shrink-0 flex flex-col items-center rounded-2xl px-4 py-3"
-                        style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.25)' }}>
-                        <span className="text-emerald-700 text-2xl font-bold leading-none">
-                          {results.priority_drill.duration?.split(' ')[0] ?? '—'}
-                        </span>
-                        <span className="text-emerald-600/55 text-xs font-semibold mt-0.5 uppercase tracking-wide">
-                          {results.priority_drill.duration?.split(' ').slice(1).join(' ') || 'min'}
-                        </span>
+
+                    {/* Header: navn + varighet */}
+                    <div className="px-5 pt-5 pb-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest mb-1.5">Øvelsesnavn</p>
+                          <p className="text-gray-900 font-bold text-xl leading-tight">{results.priority_drill.name}</p>
+                        </div>
+                        {results.priority_drill.duration && (
+                          <div className="shrink-0 rounded-2xl px-3 py-2 text-center"
+                            style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.2)' }}>
+                            <p className="text-emerald-700 text-xl font-bold leading-none">
+                              {results.priority_drill.duration.split(' ')[0]}
+                            </p>
+                            <p className="text-emerald-600/60 text-xs font-semibold mt-0.5 uppercase tracking-wide">
+                              {results.priority_drill.duration.split(' ').slice(1).join(' ') || 'min'}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
-                    <div className="px-5 pb-5" style={{ borderTop: '1px solid rgba(5,150,105,0.1)' }}>
-                      <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-2 pt-4">Slik gjør du det</p>
+
+                    {/* Beskrivelse */}
+                    <div className="px-5 pb-4" style={{ borderTop: '1px solid rgba(5,150,105,0.1)' }}>
+                      <p className="text-xs font-bold text-black/30 uppercase tracking-wider pt-4 mb-2">Slik gjør du det</p>
                       <p className="text-black/65 text-base leading-relaxed">{results.priority_drill.description}</p>
                     </div>
+
+                    {/* Hvorfor */}
                     {improvements[0] && (
                       <div className="mx-4 mb-4 rounded-2xl px-4 py-3"
                         style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.07)' }}>
@@ -722,6 +863,7 @@ export default function Home() {
                       </div>
                     )}
                   </div>
+
                   <div className="rounded-2xl px-4 py-3.5 text-center"
                     style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.07)', backdropFilter: 'blur(20px)' }}>
                     <p className="text-black/40 text-sm leading-relaxed">
@@ -739,7 +881,6 @@ export default function Home() {
 
       {/* ══════════════════ FIXED BOTTOM CTA ══════════════════ */}
 
-      {/* Upload */}
       <AnimatePresence>
         {stage === 'idle' && !results && (
           <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
@@ -774,7 +915,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      {/* Results */}
       <AnimatePresence>
         {stage === 'done' && results && (
           <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
