@@ -90,7 +90,21 @@ const item = {
 
 type Stage      = 'idle' | 'uploading' | 'analyzing' | 'generating' | 'done'
 type SkillLevel = 'nybegynner' | 'middels' | 'avansert'
-interface HistoryEntry { id: string; date: string; score: number; summary: string; improvements_count: number }
+
+interface AngleSnapshot { shoulder: number; hip: number; spine: number }
+interface HistoryEntry {
+  id: string; date: string; score: number; summary: string
+  improvements_count: number; angles?: AngleSnapshot
+}
+
+// Nøkkelmålinger å vise med referanseverdier
+const KEY_ANGLES = [
+  { phase: 'backswing_top', key: 'shoulder_rotation', label: 'Skulderrotasjon', sub: 'Topp av backswing', min: 80, max: 95 },
+  { phase: 'backswing_top', key: 'hip_rotation',      label: 'Hofterotasjon',   sub: 'Topp av backswing', min: 40, max: 55 },
+  { phase: 'address',       key: 'spine_angle',        label: 'Ryggvinkel',      sub: 'Adressestilling',   min: 35, max: 45 },
+  { phase: 'impact',        key: 'hip_rotation',       label: 'Hofterotasjon',   sub: 'Ved ballkontakt',   min: 45, max: 60 },
+  { phase: 'backswing_top', key: 'left_arm_angle',     label: 'Venstre arm',     sub: 'Topp av backswing', min: 150, max: 180 },
+] as const
 
 function loadHistory(): HistoryEntry[] {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') } catch { return [] }
@@ -103,6 +117,51 @@ const glass: React.CSSProperties = {
   backdropFilter: 'blur(40px)',
   WebkitBackdropFilter: 'blur(40px)',
   boxShadow: '0 2px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.95)',
+}
+
+// ─── AngleBar ────────────────────────────────────────────────────────────────
+
+function AngleBar({ value, min, max, label, sub }: { value: number; min: number; max: number; label: string; sub: string }) {
+  const displayMax = max * 1.5
+  const pct        = Math.min(100, (value / displayMax) * 100)
+  const tMin       = (min / displayMax) * 100
+  const tMax       = (max / displayMax) * 100
+  const inRange    = value >= min && value <= max
+  const close      = value >= min * 0.88 && value <= max * 1.12
+  const color      = inRange ? '#059669' : close ? '#d97706' : '#dc2626'
+  const diff       = inRange ? null : value < min ? `${Math.round(min - value)}° under mål` : `${Math.round(value - max)}° over mål`
+
+  return (
+    <div className="py-3 border-b border-black/[0.05] last:border-0">
+      <div className="flex items-baseline justify-between mb-2">
+        <div>
+          <span className="text-sm font-semibold text-black/75">{label}</span>
+          <span className="text-xs text-black/30 ml-2">{sub}</span>
+        </div>
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-lg font-bold tabular-nums" style={{ color }}>{Math.round(value)}°</span>
+          {diff && <span className="text-xs" style={{ color }}>{diff}</span>}
+          {inRange && <span className="text-xs text-emerald-600">✓ i mål</span>}
+        </div>
+      </div>
+      {/* Track */}
+      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.07)' }}>
+        {/* Target zone */}
+        <div className="absolute top-0 bottom-0 rounded-full opacity-30"
+          style={{ left: `${tMin}%`, width: `${tMax - tMin}%`, background: '#059669' }} />
+        {/* Value */}
+        <motion.div className="absolute top-0 left-0 bottom-0 rounded-full"
+          initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+          style={{ background: color }}
+        />
+      </div>
+      <div className="flex justify-between mt-1">
+        <span className="text-[10px] text-black/20">0°</span>
+        <span className="text-[10px] text-black/30">Mål {min}–{max}°</span>
+      </div>
+    </div>
+  )
 }
 
 // ─── ScoreRing ────────────────────────────────────────────────────────────────
@@ -393,10 +452,16 @@ export default function Home() {
           }
         },
       })
+      const m = res.data.measurements ?? {}
       const entry: HistoryEntry = {
         id: Date.now().toString(), date: new Date().toISOString(),
         score: Number(res.data.score ?? 0), summary: res.data.summary ?? '',
         improvements_count: res.data.improvements?.length ?? 0,
+        angles: m.backswing_top ? {
+          shoulder: Math.round(m.backswing_top.shoulder_rotation ?? 0),
+          hip:      Math.round(m.backswing_top.hip_rotation ?? 0),
+          spine:    Math.round(m.address?.spine_angle ?? 0),
+        } : undefined,
       }
       const newHistory = [entry, ...loadHistory()].slice(0, 10)
       localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory)); setHistory(newHistory)
@@ -589,17 +654,47 @@ export default function Home() {
                     </div>
                   )}
                   <div className="space-y-2">
-                    {history.slice(0, 3).map((e) => (
-                      <div key={e.id} className="flex items-center gap-3 rounded-2xl px-4 py-3"
-                        style={{ border: '1px solid rgba(0,0,0,0.07)', background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(20px)' }}>
-                        <span className={`text-2xl font-bold tabular-nums shrink-0 ${e.score >= 75 ? 'text-emerald-600' : e.score >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>{e.score}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-black/60 text-sm truncate">{e.summary}</p>
-                          <p className="text-black/30 text-xs mt-0.5">{new Date(e.date).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    {history.slice(0, 3).map((e, i) => {
+                      const prev = history[i + 1]
+                      return (
+                        <div key={e.id} className="rounded-2xl px-4 py-3"
+                          style={{ border: '1px solid rgba(0,0,0,0.07)', background: 'rgba(255,255,255,0.65)', backdropFilter: 'blur(20px)' }}>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-2xl font-bold tabular-nums shrink-0 ${e.score >= 75 ? 'text-emerald-600' : e.score >= 50 ? 'text-amber-500' : 'text-rose-500'}`}>{e.score}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-black/60 text-sm truncate">{e.summary}</p>
+                              <p className="text-black/30 text-xs mt-0.5">{new Date(e.date).toLocaleDateString('nb-NO', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                            </div>
+                            <span className="text-black/25 text-xs shrink-0">{e.improvements_count} forb.</span>
+                          </div>
+                          {/* Angle snapshot */}
+                          {e.angles && (
+                            <div className="flex gap-2 mt-2.5 flex-wrap">
+                              {[
+                                { label: 'Skulder', val: e.angles.shoulder, prevVal: prev?.angles?.shoulder, ideal: [80, 95] },
+                                { label: 'Hofte',   val: e.angles.hip,      prevVal: prev?.angles?.hip,      ideal: [40, 55] },
+                                { label: 'Rygg',    val: e.angles.spine,    prevVal: prev?.angles?.spine,    ideal: [35, 45] },
+                              ].map(({ label, val, prevVal, ideal }) => {
+                                const inRange = val >= ideal[0] && val <= ideal[1]
+                                const delta = prevVal != null ? val - prevVal : null
+                                return (
+                                  <div key={label} className="flex items-center gap-1 rounded-full px-2.5 py-1"
+                                    style={{ background: inRange ? 'rgba(5,150,105,0.09)' : 'rgba(0,0,0,0.05)', border: `1px solid ${inRange ? 'rgba(5,150,105,0.2)' : 'rgba(0,0,0,0.07)'}` }}>
+                                    <span className="text-[10px] text-black/40">{label}</span>
+                                    <span className="text-[11px] font-semibold tabular-nums" style={{ color: inRange ? '#059669' : '#6b7280' }}>{val}°</span>
+                                    {delta != null && Math.abs(delta) >= 2 && (
+                                      <span className="text-[10px]" style={{ color: delta > 0 ? '#059669' : '#dc2626' }}>
+                                        {delta > 0 ? `+${delta}` : delta}
+                                      </span>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
-                        <span className="text-black/25 text-xs shrink-0">{e.improvements_count} forb.</span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -715,6 +810,25 @@ export default function Home() {
                 </div>
               </motion.div>
 
+              {/* ── Video replay ── */}
+              {previewUrl && (
+                <motion.div variants={item} className="space-y-3">
+                  <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Din sving</p>
+                  <div className="rounded-3xl overflow-hidden"
+                    style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
+                    <video
+                      src={previewUrl}
+                      className="w-full max-h-72 object-cover bg-black"
+                      controls playsInline
+                      style={{ display: 'block' }}
+                    />
+                  </div>
+                  <p className="text-xs text-black/30 text-center">
+                    Spill av svingen din og sammenlign med nøkkelbildene nedenfor
+                  </p>
+                </motion.div>
+              )}
+
               {/* Keyframes */}
               {results.keyframes && Object.keys(results.keyframes).length > 0 && (
                 <motion.div variants={item} className="space-y-3">
@@ -757,6 +871,28 @@ export default function Home() {
                       ) : null
                     })}
                   </div>
+                </motion.div>
+              )}
+
+              {/* ── Målinger ── */}
+              {results.measurements && (
+                <motion.div variants={item} className="space-y-3">
+                  <div className="flex items-center justify-between px-0.5">
+                    <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Kroppsmålinger</p>
+                    <span className="text-xs text-black/25">vs. referanseverdier</span>
+                  </div>
+                  <div className="rounded-3xl px-5"
+                    style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)' }}>
+                    {KEY_ANGLES.map(({ phase, key, label, sub, min, max }) => {
+                      const val = results.measurements?.[phase]?.[key]
+                      return typeof val === 'number' ? (
+                        <AngleBar key={`${phase}-${key}`} value={val} min={min} max={max} label={label} sub={sub} />
+                      ) : null
+                    })}
+                  </div>
+                  <p className="text-xs text-black/25 text-center px-2">
+                    Grønn sone = ideell referansevinkel for amatørgolfere
+                  </p>
                 </motion.div>
               )}
 
