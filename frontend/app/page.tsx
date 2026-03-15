@@ -110,6 +110,93 @@ function loadHistory(): HistoryEntry[] {
   try { return JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]') } catch { return [] }
 }
 
+// ─── Demo-analyse ─────────────────────────────────────────────────────────────
+// Basert på typisk analyse av amatørgolfer, middels nivå
+
+const DEMO_RESULT = {
+  score: 62,
+  summary: 'Du har et godt grunnlag med stabil adressestilling og jevn rytme gjennom svingen. Skulderrotasjonen stopper litt tidlig i backswing, noe som begrenser kraftpotensialet. Hoftene er for sene med å åpne seg i nedsvingen, og venstre arm bøyer mer enn ideelt ved topp av backswing. Med fokus på rotasjon og arm-disiplin kan du hente 10–15 poeng.',
+  strengths: [
+    'God og stabil adressestilling med riktig ballplassering',
+    'Rolig og kontrollert tempo — du ruser deg ikke gjennom backswingen',
+    'Solid follow-through med god balanse etter slag',
+  ],
+  improvements: [
+    {
+      area: 'Skulderrotasjon',
+      issue: 'Skuldrene roterer kun ca. 73° i backswing — ideelt er 80–95° for full kraftoverføring',
+      tip: 'Forestill deg at du skal peke venstre skulder mot ballen i topp av backswing. Prøv drill med en klubb over skuldrene for å kjenne riktig rotasjon.',
+      impact: 'high',
+      phase: 'backswing_top',
+    },
+    {
+      area: 'Hofteåpning i nedsvingen',
+      issue: 'Hoftene er for sene med å starte nedsvingen — de roterer kun 42° ved impact mot ideelle 45–60°',
+      tip: 'Start nedsvingen ved å dreie venstre hofte bakover og mot målet FØR du begynner armbevegelsen. Prøv «bump and turn»-drillet.',
+      impact: 'high',
+      phase: 'impact',
+    },
+    {
+      area: 'Venstre arm i backswing',
+      issue: 'Venstre arm bøyer til ca. 145° ved topp av backswing — ideelt er 150–180° (rett arm)',
+      tip: 'Hold venstre arm strak gjennom backswingen. Prøv å holde en headcover under venstre armhule for å tvinge kontakt mellom overarm og bryst.',
+      impact: 'medium',
+      phase: 'backswing_top',
+    },
+    {
+      area: 'Ryggvinkel',
+      issue: 'Ryggvinkelen er 48° i adresse — litt brattere enn idealverdien på 35–45°',
+      tip: 'Bøy litt mer fra hoften i adressestillingen. Hold ryggen flat og skuldrene over tærne, ikke over knærne.',
+      impact: 'low',
+      phase: 'address',
+    },
+  ],
+  priority_drill: {
+    name: 'Skulderrotasjons-drill med klubb',
+    description: 'Hold en klubb horisontalt over skuldrene med kryss-grep. Øv på å rotere til venstre skulder peker mot en imaginær ball. Gjør dette sakte foran et speil — 20 repetisjoner per økt. Kjenn at hoftene holder seg og skuldrene roterer fullt.',
+    duration: '10 min daglig',
+  },
+  measurements: {
+    address: {
+      frame: 0,
+      shoulder_rotation: 86.2,
+      hip_rotation: 82.1,
+      left_arm_angle: 162.4,
+      left_knee_flex: 158.3,
+      right_knee_flex: 156.8,
+      spine_angle: 48.1,
+    },
+    backswing_top: {
+      frame: 18,
+      shoulder_rotation: 73.4,
+      hip_rotation: 38.2,
+      left_arm_angle: 144.7,
+      left_knee_flex: 145.6,
+      right_knee_flex: 138.2,
+      spine_angle: 46.3,
+    },
+    impact: {
+      frame: 36,
+      shoulder_rotation: 92.1,
+      hip_rotation: 42.3,
+      left_arm_angle: 168.9,
+      left_knee_flex: 162.4,
+      right_knee_flex: 158.7,
+      spine_angle: 44.8,
+    },
+    follow_through: {
+      frame: 54,
+      shoulder_rotation: 118.5,
+      hip_rotation: 68.4,
+      left_arm_angle: 156.2,
+      left_knee_flex: 172.1,
+      right_knee_flex: 152.3,
+      spine_angle: 42.6,
+    },
+  },
+  keyframes: {} as Record<string, string>,
+}
+
 // ─── Glass style ─────────────────────────────────────────────────────────────
 
 const glass: React.CSSProperties = {
@@ -434,6 +521,12 @@ export default function Home() {
 
   const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFile(f) }
   const onDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files?.[0]; if (f) pickFile(f) }
+
+  const handleDemo = () => {
+    setError(null)
+    setResults(DEMO_RESULT)
+    setStage('done')
+  }
 
   const handleAnalyze = async () => {
     if (!videoFile) return
@@ -1037,6 +1130,22 @@ export default function Home() {
                   {videoFile && <ChevronRight size={16} />}
                 </span>
               </motion.button>
+
+              {/* Demo-knapp */}
+              {!videoFile && (
+                <motion.button
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleDemo}
+                  className="w-full py-3 rounded-2xl font-medium text-sm transition-all"
+                  style={{ background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)', color: 'rgba(0,0,0,0.45)' }}
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <BookOpen size={15} />
+                    Se eksempelanalyse
+                  </span>
+                </motion.button>
+              )}
             </div>
           </motion.div>
         )}
