@@ -823,33 +823,24 @@ export default function Home() {
               {results.priority_drill && (
                 <motion.div variants={item} className="space-y-3">
                   <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Prioritert øvelse</p>
-                  <div className="rounded-3xl overflow-hidden"
-                    style={{ background: 'rgba(240,253,244,0.9)', border: '1.5px solid rgba(5,150,105,0.2)', backdropFilter: 'blur(40px)', boxShadow: '0 2px 32px rgba(5,150,105,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
 
-                    {/* Header: navn + varighet */}
-                    <div className="px-5 pt-5 pb-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest mb-1.5">Øvelsesnavn</p>
-                          <p className="text-gray-900 font-bold text-xl leading-tight">{results.priority_drill.name}</p>
-                        </div>
-                        {results.priority_drill.duration && (
-                          <div className="shrink-0 rounded-2xl px-3 py-2 text-center"
-                            style={{ background: 'rgba(5,150,105,0.12)', border: '1px solid rgba(5,150,105,0.2)' }}>
-                            <p className="text-emerald-700 text-xl font-bold leading-none">
-                              {results.priority_drill.duration.split(' ')[0]}
-                            </p>
-                            <p className="text-emerald-600/60 text-xs font-semibold mt-0.5 uppercase tracking-wide">
-                              {results.priority_drill.duration.split(' ').slice(1).join(' ') || 'min'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                  <div className="rounded-3xl"
+                    style={{ background: 'rgba(240,253,244,0.9)', border: '1.5px solid rgba(5,150,105,0.2)', backdropFilter: 'blur(40px)', boxShadow: '0 2px 32px rgba(5,150,105,0.08)' }}>
+
+                    {/* Navn */}
+                    <div className="px-5 pt-5 pb-3">
+                      <p className="text-gray-900 font-bold text-xl leading-snug">{results.priority_drill.name}</p>
+                      {results.priority_drill.duration && (
+                        <span className="inline-flex items-center gap-1.5 mt-2 rounded-full px-3 py-1 text-sm font-semibold"
+                          style={{ background: 'rgba(5,150,105,0.12)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }}>
+                          ⏱ {results.priority_drill.duration}
+                        </span>
+                      )}
                     </div>
 
                     {/* Beskrivelse */}
-                    <div className="px-5 pb-4" style={{ borderTop: '1px solid rgba(5,150,105,0.1)' }}>
-                      <p className="text-xs font-bold text-black/30 uppercase tracking-wider pt-4 mb-2">Slik gjør du det</p>
+                    <div className="px-5 py-4" style={{ borderTop: '1px solid rgba(5,150,105,0.12)' }}>
+                      <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-2">Slik gjør du det</p>
                       <p className="text-black/65 text-base leading-relaxed">{results.priority_drill.description}</p>
                     </div>
 
@@ -858,7 +849,7 @@ export default function Home() {
                       <div className="mx-4 mb-4 rounded-2xl px-4 py-3"
                         style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.07)' }}>
                         <p className="text-black/40 text-sm leading-relaxed">
-                          🎯 Målretter <span className="text-amber-600 font-semibold">{improvements[0].area.toLowerCase()}</span> — forbedringsområdet med størst potensiell effekt.
+                          🎯 Målretter <span className="text-amber-600 font-semibold">{improvements[0].area.toLowerCase()}</span> — forbedringsområdet med størst effekt.
                         </p>
                       </div>
                     )}
