@@ -38,6 +38,12 @@ pose = mp_pose.Pose(
     smooth_landmarks=True,
 )
 
+# Statisk instans for skjelett-overlay på keyframes (initialisert én gang ved oppstart)
+pose_static = mp_pose.Pose(
+    static_image_mode=True,
+    model_complexity=0,
+)
+
 # Initialize Anthropic client
 client = Anthropic()
 
@@ -209,15 +215,14 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
     # Bygg keyframe-bilder med skjelett-overlay
     phase_names = ['address', 'backswing_top', 'impact', 'follow_through']
     keyframe_images = {}
-    with mp_pose.Pose(static_image_mode=True, model_complexity=1) as kf_pose:
-        for phase, idx in zip(phase_names, key_frame_indices):
-            if idx in captured_frames:
-                frame = captured_frames[idx].copy()
-                rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                kf_result = kf_pose.process(rgb)
-                if kf_result.pose_landmarks:
-                    frame = draw_skeleton(frame, kf_result.pose_landmarks.landmark)
-                keyframe_images[phase] = frame_to_base64(frame)
+    for phase, idx in zip(phase_names, key_frame_indices):
+        if idx in captured_frames:
+            frame = captured_frames[idx].copy()
+            rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            kf_result = pose_static.process(rgb)
+            if kf_result.pose_landmarks:
+                frame = draw_skeleton(frame, kf_result.pose_landmarks.landmark)
+            keyframe_images[phase] = frame_to_base64(frame)
 
     return measurements, keyframe_images
 
