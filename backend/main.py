@@ -334,10 +334,9 @@ def analyze_video(video_path: str, frame_overrides: dict | None = None) -> tuple
         def closest_measurement(target_frame: int):
             return min(frame_measurements, key=lambda m: abs(m['frame'] - target_frame))
 
-        measurements['address']        = closest_measurement(phase_indices['address'])
-        measurements['backswing_top']  = closest_measurement(phase_indices['backswing_top'])
-        measurements['impact']         = closest_measurement(phase_indices['impact'])
-        measurements['follow_through'] = closest_measurement(phase_indices['follow_through'])
+        for phase in ['address', 'backswing_top', 'impact', 'follow_through']:
+            if phase in phase_indices:
+                measurements[phase] = closest_measurement(phase_indices[phase])
 
     # Bygg keyframe-bilder med skjelett-overlay
     keyframe_images = {}
