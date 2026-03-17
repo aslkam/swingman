@@ -540,16 +540,17 @@ async def preview_swing(
     try:
         result = extract_keyframes_for_preview(tmp_path)
 
-        if file and file.filename and file_front and file_front.filename:
+        if file_front is not None:
             contents_front = await file_front.read()
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_f:
-                tmp_f.write(contents_front)
-                tmp_front_path = tmp_f.name
-            front = extract_keyframes_for_preview(tmp_front_path)
-            result['phase_indices_front'] = front['phase_indices']
-            result['keyframes_front'] = front['keyframes']
-            result['total_frames_front'] = front['total_frames']
-            result['fps_front'] = front['fps']
+            if contents_front:
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_f:
+                    tmp_f.write(contents_front)
+                    tmp_front_path = tmp_f.name
+                front = extract_keyframes_for_preview(tmp_front_path)
+                result['phase_indices_front'] = front['phase_indices']
+                result['keyframes_front'] = front['keyframes']
+                result['total_frames_front'] = front['total_frames']
+                result['fps_front'] = front['fps']
 
         return result
     except Exception as e:

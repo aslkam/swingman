@@ -545,17 +545,19 @@ function PhaseVideoCard({
   )
 }
 
+// primaryUrl = backend sin "file" (side hvis lastet opp, ellers front)
+// secondaryUrl = backend sin "file_front" (kun hvis begge er lastet opp)
 function FrameConfirmStep({
-  previewData, sideUrl, frontUrl,
+  previewData, primaryUrl, secondaryUrl, primaryLabel,
   confirmedSide, setConfirmedSide,
   confirmedFront, setConfirmedFront,
 }: {
   previewData: any
-  sideUrl: string | null; frontUrl: string | null
+  primaryUrl: string | null; secondaryUrl: string | null; primaryLabel: string
   confirmedSide: Record<string, number>; setConfirmedSide: (v: Record<string, number>) => void
   confirmedFront: Record<string, number>; setConfirmedFront: (v: Record<string, number>) => void
 }) {
-  const hasFront = !!frontUrl && !!previewData.phase_indices_front
+  const hasSecondary = !!secondaryUrl && !!previewData.phase_indices_front
 
   return (
     <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
@@ -566,14 +568,14 @@ function FrameConfirmStep({
         </p>
       </div>
 
-      {sideUrl && (
+      {primaryUrl && (
         <div className="space-y-3">
-          {hasFront && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Fra siden</p>}
+          {hasSecondary && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">{primaryLabel}</p>}
           {PHASE_ORDER.map((phase) => {
             const autoIdx = previewData.phase_indices?.[phase] ?? 0
             const curIdx  = confirmedSide[phase] ?? autoIdx
             return (
-              <PhaseVideoCard key={phase} phase={phase} videoUrl={sideUrl}
+              <PhaseVideoCard key={`primary-${phase}`} phase={phase} videoUrl={primaryUrl}
                 fps={previewData.fps ?? 30} totalFrames={previewData.total_frames ?? 100}
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 onChange={(v) => setConfirmedSide({ ...confirmedSide, [phase]: v })}
@@ -583,14 +585,14 @@ function FrameConfirmStep({
         </div>
       )}
 
-      {hasFront && frontUrl && (
+      {hasSecondary && secondaryUrl && (
         <div className="space-y-3">
           <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Forfra</p>
           {PHASE_ORDER.map((phase) => {
             const autoIdx = previewData.phase_indices_front?.[phase] ?? 0
             const curIdx  = confirmedFront[phase] ?? autoIdx
             return (
-              <PhaseVideoCard key={phase} phase={phase} videoUrl={frontUrl}
+              <PhaseVideoCard key={`secondary-${phase}`} phase={phase} videoUrl={secondaryUrl}
                 fps={previewData.fps_front ?? 30} totalFrames={previewData.total_frames_front ?? 100}
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 onChange={(v) => setConfirmedFront({ ...confirmedFront, [phase]: v })}
@@ -1129,8 +1131,9 @@ export default function Home() {
           {stage === 'preview' && previewData && (
             <FrameConfirmStep
               previewData={previewData}
-              sideUrl={previewUrl}
-              frontUrl={previewFront}
+              primaryUrl={videoFile ? previewUrl : previewFront}
+              secondaryUrl={videoFile && videoFront ? previewFront : null}
+              primaryLabel={videoFile ? 'Fra siden' : 'Forfra'}
               confirmedSide={confirmedSide}
               setConfirmedSide={setConfirmedSide}
               confirmedFront={confirmedFront}
