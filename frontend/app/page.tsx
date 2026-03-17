@@ -479,14 +479,16 @@ function VideoDropZone({
               <img src={thumbnail} alt={label} className="w-full max-h-44 object-cover" />
             ) : (
               <div className="w-full h-32 flex items-center justify-center bg-emerald-50">
-                <Loader2 size={20} className="text-emerald-400 animate-spin" />
+                <p className="text-emerald-500 text-xs font-medium">Laster forhåndsvisning…</p>
               </div>
             )}
             <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)' }} />
-            <div className="absolute top-2.5 left-2.5 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 border border-white/20">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-              <span className="text-white text-xs font-semibold">Klar</span>
-            </div>
+            {thumbnail && (
+              <div className="absolute top-2.5 left-2.5 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 border border-white/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span className="text-white text-xs font-semibold">Klar</span>
+              </div>
+            )}
             <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
               <p className="text-white text-xs font-medium truncate max-w-[140px]">{videoFile.name}</p>
               <button onClick={(e) => { e.stopPropagation(); onSwap() }}
