@@ -187,13 +187,11 @@ def detect_phase_indices(video_path: str, rotation: int, total_frames: int) -> d
     addr_end = max(2, int(n * 0.15))
     address_idx = int(np.argmin(scores[:addr_end]))
 
-    # Backswing top: roligste punkt mellom address og impact (pausen i toppen)
-    bt_lo = address_idx + 1
-    bt_hi = impact_idx
-    if bt_hi > bt_lo + 1:
-        backswing_idx = bt_lo + int(np.argmin(scores[bt_lo:bt_hi]))
-    else:
-        backswing_idx = bt_lo
+    # Backswing top: roligste punkt i midtre 30-70% av address→impact
+    span = impact_idx - address_idx
+    bt_lo = address_idx + max(1, int(span * 0.3))
+    bt_hi = address_idx + max(2, int(span * 0.7))
+    backswing_idx = bt_lo + int(np.argmin(scores[bt_lo:bt_hi])) if bt_hi > bt_lo else bt_lo
 
     # Follow-through: 75% av veien etter impact mot slutten
     follow_idx = min(n - 1, impact_idx + int((n - 1 - impact_idx) * 0.75))
