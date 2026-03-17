@@ -1084,7 +1084,6 @@ export default function Home() {
                   <div className="grid grid-cols-2 gap-2.5">
                     {(['address','backswing_top','impact','follow_through'] as const).map(phase => {
                       if (!results.keyframes[phase]) return null
-                      // KPI: finn forbedringer for denne fasen
                       const phaseImprovements = (results.improvements ?? []).filter((imp: any) => imp.phase === phase)
                       const kpi = phaseImprovements.some((i: any) => i.impact === 'high') ? 'red'
                         : phaseImprovements.some((i: any) => i.impact === 'medium') ? 'yellow'
@@ -1094,55 +1093,107 @@ export default function Home() {
                         : kpi === 'yellow'
                         ? { bg: 'rgba(217,119,6,0.85)', label: 'Kan forbedres' }
                         : { bg: 'rgba(5,150,105,0.85)', label: 'Bra' }
-                      const isOpen = selectedPhase === phase
 
                       return (
-                        <div key={phase}
-                          className="relative rounded-2xl overflow-hidden cursor-pointer"
-                          style={{ border: `1.5px solid ${isOpen ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.08)'}`, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
-                          onClick={() => setSelectedPhase(isOpen ? null : phase)}
+                        <motion.div
+                          key={phase}
+                          layoutId={`phase-card-${phase}`}
+                          className="relative overflow-hidden cursor-pointer"
+                          style={{ borderRadius: 16, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
+                          onClick={() => setSelectedPhase(phase)}
                         >
-                          {/* Bilde */}
                           <img src={`data:image/jpeg;base64,${results.keyframes[phase]}`} alt={PHASE_LABELS[phase]}
-                            className={`w-full aspect-[3/4] object-cover object-top transition-all duration-500 ${isOpen ? 'blur-sm scale-105 brightness-50' : ''}`} />
-
-                          {/* Gradient + fasenavn (alltid synlig) */}
-                          {!isOpen && (
-                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }} />
-                          )}
-                          <p className={`absolute bottom-2.5 left-2.5 text-white text-sm font-semibold transition-opacity ${isOpen ? 'opacity-0' : 'opacity-100'}`}>
-                            {PHASE_LABELS[phase]}
-                          </p>
-
-                          {/* KPI-badge */}
-                          {!isOpen && (
-                            <span className="absolute top-2.5 right-2.5 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"
-                              style={{ background: kpiStyle.bg, backdropFilter: 'blur(8px)' }}>
-                              {kpiStyle.label}
-                            </span>
-                          )}
-
-                          {/* Overlay med detaljer */}
-                          {isOpen && (
-                            <div className="absolute inset-0 flex flex-col justify-between p-3 overflow-y-auto">
-                              <div>
-                                <p className="text-white text-xs font-bold uppercase tracking-widest mb-2 opacity-70">{PHASE_LABELS[phase]}</p>
-                                {phaseImprovements.length > 0 ? phaseImprovements.map((imp: any, i: number) => (
-                                  <div key={i} className="mb-2.5">
-                                    <p className="text-white font-semibold text-xs leading-snug">{imp.area}</p>
-                                    <p className="text-white/75 text-[11px] leading-relaxed mt-0.5">{imp.tip}</p>
-                                  </div>
-                                )) : (
-                                  <p className="text-white/80 text-xs leading-relaxed">Ingen vesentlige feil i denne fasen.</p>
-                                )}
-                              </div>
-                              <p className="text-white/40 text-[10px] text-center mt-2">Trykk for å gå tilbake</p>
-                            </div>
-                          )}
-                        </div>
+                            className="w-full aspect-[3/4] object-cover object-top" />
+                          <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }} />
+                          <p className="absolute bottom-2.5 left-2.5 text-white text-sm font-semibold">{PHASE_LABELS[phase]}</p>
+                          <span className="absolute top-2.5 right-2.5 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"
+                            style={{ background: kpiStyle.bg, backdropFilter: 'blur(8px)' }}>
+                            {kpiStyle.label}
+                          </span>
+                        </motion.div>
                       )
                     })}
                   </div>
+
+                  {/* ── Fullskjerm-overlay ── */}
+                  <AnimatePresence>
+                    {selectedPhase && results.keyframes[selectedPhase] && (() => {
+                      const phase = selectedPhase
+                      const phaseImprovements = (results.improvements ?? []).filter((imp: any) => imp.phase === phase)
+                      const kpi = phaseImprovements.some((i: any) => i.impact === 'high') ? 'red'
+                        : phaseImprovements.some((i: any) => i.impact === 'medium') ? 'yellow'
+                        : 'green'
+                      const kpiStyle = kpi === 'red'
+                        ? { bg: 'rgba(220,38,38,0.9)', label: 'Fokus her' }
+                        : kpi === 'yellow'
+                        ? { bg: 'rgba(217,119,6,0.9)', label: 'Kan forbedres' }
+                        : { bg: 'rgba(5,150,105,0.9)', label: 'Bra' }
+                      return (
+                        <>
+                          {/* Bakgrunn */}
+                          <motion.div
+                            key="phase-backdrop"
+                            className="fixed inset-0 z-40"
+                            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setSelectedPhase(null)}
+                          />
+                          {/* Kortет som ekspanderer */}
+                          <motion.div
+                            layoutId={`phase-card-${phase}`}
+                            className="fixed z-50 overflow-hidden cursor-pointer"
+                            style={{ borderRadius: 24, inset: '16px', maxWidth: 500, margin: '0 auto' }}
+                            onClick={() => setSelectedPhase(null)}
+                          >
+                            <img
+                              src={`data:image/jpeg;base64,${results.keyframes[phase]}`}
+                              alt={PHASE_LABELS[phase]}
+                              className="w-full h-full object-cover object-top"
+                              style={{ maxHeight: '100%' }}
+                            />
+                            {/* Mørk gradient nedenfra */}
+                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 45%, transparent 70%)' }} />
+
+                            {/* Tekst-innhold */}
+                            <motion.div
+                              className="absolute bottom-0 left-0 right-0 p-6"
+                              initial={{ opacity: 0, y: 12 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ delay: 0.15, duration: 0.25 }}
+                            >
+                              <div className="flex items-center gap-2.5 mb-4">
+                                <p className="text-white font-bold text-xl">{PHASE_LABELS[phase]}</p>
+                                <span className="text-white text-xs font-bold px-2.5 py-1 rounded-full"
+                                  style={{ background: kpiStyle.bg }}>
+                                  {kpiStyle.label}
+                                </span>
+                              </div>
+                              {phaseImprovements.length > 0 ? phaseImprovements.map((imp: any, i: number) => (
+                                <div key={i} className={`${i > 0 ? 'mt-4 pt-4 border-t border-white/10' : ''}`}>
+                                  <p className="text-white font-semibold text-base leading-snug">{imp.area}</p>
+                                  <p className="text-white/75 text-sm leading-relaxed mt-1">{imp.tip}</p>
+                                </div>
+                              )) : (
+                                <p className="text-white/80 text-base leading-relaxed">Ingen vesentlige feil i denne fasen.</p>
+                              )}
+                              <p className="text-white/30 text-xs text-center mt-6">Trykk for å lukke</p>
+                            </motion.div>
+
+                            {/* KPI-badge øverst */}
+                            <div className="absolute top-4 right-4">
+                              <span className="text-white text-xs font-bold px-2.5 py-1 rounded-full"
+                                style={{ background: kpiStyle.bg, backdropFilter: 'blur(8px)' }}>
+                                {kpiStyle.label}
+                              </span>
+                            </div>
+                          </motion.div>
+                        </>
+                      )
+                    })()}
+                  </AnimatePresence>
                 </motion.div>
               )}
 
