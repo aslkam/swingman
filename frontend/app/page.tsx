@@ -96,7 +96,7 @@ const item = {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Stage      = 'idle' | 'uploading' | 'analyzing' | 'generating' | 'done'
+type Stage      = 'idle' | 'previewing' | 'preview' | 'uploading' | 'analyzing' | 'generating' | 'done'
 type SkillLevel = 'nybegynner' | 'middels' | 'avansert'
 
 interface AngleSnapshot { shoulder: number; hip: number; spine: number }
@@ -485,6 +485,216 @@ function VideoDropZone({
   )
 }
 
+// ─── FrameConfirmStep ─────────────────────────────────────────────────────────
+
+const PHASE_ORDER = ['address', 'backswing_top', 'impact', 'follow_through'] as const
+const PHASE_LABELS_FULL: Record<string, string> = {
+  address: 'Adresse', backswing_top: 'Topp av backswing', impact: 'Impact', follow_through: 'Follow-through',
+}
+const PHASE_ICONS: Record<string, string> = {
+  address: '🧍', backswing_top: '🔄', impact: '💥', follow_through: '🏌️',
+}
+
+function FrameConfirmStep({
+  previewData,
+  sideUrl,
+  frontUrl,
+  confirmedSide,
+  setConfirmedSide,
+  confirmedFront,
+  setConfirmedFront,
+  onConfirm,
+  onSkip,
+}: {
+  previewData: any
+  sideUrl: string | null
+  frontUrl: string | null
+  confirmedSide: Record<string, number>
+  setConfirmedSide: (v: Record<string, number>) => void
+  confirmedFront: Record<string, number>
+  setConfirmedFront: (v: Record<string, number>) => void
+  onConfirm: () => void
+  onSkip: () => void
+}) {
+  // Lokale preview-bilder (data URL) – starter med backend-bilder
+  const [sideImgs, setSideImgs] = React.useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {}
+    for (const p of PHASE_ORDER) {
+      if (previewData.keyframes?.[p]) out[p] = `data:image/jpeg;base64,${previewData.keyframes[p]}`
+    }
+    return out
+  })
+  const [frontImgs, setFrontImgs] = React.useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {}
+    for (const p of PHASE_ORDER) {
+      if (previewData.keyframes_front?.[p]) out[p] = `data:image/jpeg;base64,${previewData.keyframes_front[p]}`
+    }
+    return out
+  })
+
+  const sideVideoRef  = React.useRef<HTMLVideoElement>(null)
+  const frontVideoRef = React.useRef<HTMLVideoElement>(null)
+  const seekingRef    = React.useRef<Record<string, boolean>>({})
+
+  const captureFromVideo = (
+    videoEl: HTMLVideoElement,
+    frameIdx: number,
+    fps: number,
+    cb: (dataUrl: string) => void,
+  ) => {
+    const doCapture = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width  = videoEl.videoWidth  || 640
+      canvas.height = videoEl.videoHeight || 480
+      canvas.getContext('2d')?.drawImage(videoEl, 0, 0)
+      cb(canvas.toDataURL('image/jpeg', 0.82))
+    }
+    videoEl.currentTime = frameIdx / fps
+    videoEl.addEventListener('seeked', () => {
+      requestAnimationFrame(() => requestAnimationFrame(doCapture))
+    }, { once: true })
+  }
+
+  const handleSideSlider = (phase: string, val: number) => {
+    setConfirmedSide({ ...confirmedSide, [phase]: val })
+    if (!sideVideoRef.current || seekingRef.current[`s-${phase}`]) return
+    seekingRef.current[`s-${phase}`] = true
+    captureFromVideo(sideVideoRef.current, val, previewData.fps ?? 30, (url) => {
+      setSideImgs(prev => ({ ...prev, [phase]: url }))
+      seekingRef.current[`s-${phase}`] = false
+    })
+  }
+
+  const handleFrontSlider = (phase: string, val: number) => {
+    setConfirmedFront({ ...confirmedFront, [phase]: val })
+    if (!frontVideoRef.current || seekingRef.current[`f-${phase}`]) return
+    seekingRef.current[`f-${phase}`] = true
+    captureFromVideo(frontVideoRef.current, val, previewData.fps_front ?? 30, (url) => {
+      setFrontImgs(prev => ({ ...prev, [phase]: url }))
+      seekingRef.current[`f-${phase}`] = false
+    })
+  }
+
+  const hasFront = !!frontUrl && !!previewData.keyframes_front
+
+  return (
+    <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
+      {/* Skjulte video-elementer for scrubbing */}
+      {sideUrl  && <video ref={sideVideoRef}  src={sideUrl}  muted playsInline preload="auto" className="hidden" />}
+      {frontUrl && <video ref={frontVideoRef} src={frontUrl} muted playsInline preload="auto" className="hidden" />}
+
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#1d1d1f' }}>Bekreft nøkkelbilder</h2>
+        <p className="text-black/45 text-sm mt-1.5 leading-relaxed">
+          Vi har valgt disse bildene automatisk. Dra sliderene for å justere.
+        </p>
+      </div>
+
+      {/* Side-video kort */}
+      <div className="space-y-3">
+        {hasFront && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Fra siden</p>}
+        {PHASE_ORDER.map((phase) => {
+          const autoIdx = previewData.phase_indices?.[phase] ?? 0
+          const total   = previewData.total_frames ?? 100
+          const fps     = previewData.fps ?? 30
+          const curIdx  = confirmedSide[phase] ?? autoIdx
+          const img     = sideImgs[phase]
+          const changed = curIdx !== autoIdx
+
+          return (
+            <div key={phase} className="rounded-3xl overflow-hidden"
+              style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
+              {/* Bilde */}
+              <div className="relative" style={{ height: 180 }}>
+                {img
+                  ? <img src={img} alt={phase} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center bg-black/5">
+                      <Loader2 size={20} className="text-black/25 animate-spin" />
+                    </div>
+                }
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }} />
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-base">{PHASE_ICONS[phase]}</span>
+                    <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
+                  </div>
+                  <span className="text-white/60 text-xs font-mono">
+                    #{curIdx} {changed && <span className="text-emerald-300">✓</span>}
+                  </span>
+                </div>
+              </div>
+              {/* Slider */}
+              <div className="px-4 py-3">
+                <input type="range" min={0} max={total - 1} value={curIdx}
+                  onChange={(e) => handleSideSlider(phase, Number(e.target.value))}
+                  className="w-full accent-emerald-500"
+                  style={{ height: 20 }}
+                />
+                <div className="flex justify-between mt-1">
+                  <span className="text-[10px] text-black/25">Frame 0</span>
+                  <span className="text-[10px] text-black/25">{(curIdx / fps).toFixed(1)}s</span>
+                  <span className="text-[10px] text-black/25">Frame {total - 1}</span>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Front-video kort */}
+      {hasFront && (
+        <div className="space-y-3">
+          <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Forfra</p>
+          {PHASE_ORDER.map((phase) => {
+            const autoIdx = previewData.phase_indices_front?.[phase] ?? 0
+            const total   = previewData.total_frames_front ?? 100
+            const fps     = previewData.fps_front ?? 30
+            const curIdx  = confirmedFront[phase] ?? autoIdx
+            const img     = frontImgs[phase]
+            const changed = curIdx !== autoIdx
+
+            return (
+              <div key={phase} className="rounded-3xl overflow-hidden"
+                style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
+                <div className="relative" style={{ height: 180 }}>
+                  {img
+                    ? <img src={img} alt={phase} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center bg-black/5">
+                        <Loader2 size={20} className="text-black/25 animate-spin" />
+                      </div>
+                  }
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }} />
+                  <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-base">{PHASE_ICONS[phase]}</span>
+                      <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
+                    </div>
+                    <span className="text-white/60 text-xs font-mono">
+                      #{curIdx} {changed && <span className="text-emerald-300">✓</span>}
+                    </span>
+                  </div>
+                </div>
+                <div className="px-4 py-3">
+                  <input type="range" min={0} max={total - 1} value={curIdx}
+                    onChange={(e) => handleFrontSlider(phase, Number(e.target.value))}
+                    className="w-full accent-emerald-500"
+                    style={{ height: 20 }}
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-black/25">Frame 0</span>
+                    <span className="text-[10px] text-black/25">{(curIdx / fps).toFixed(1)}s</span>
+                    <span className="text-[10px] text-black/25">Frame {total - 1}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </motion.div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -499,6 +709,9 @@ export default function Home() {
   const [stage, setStage]               = useState<Stage>('idle')
   const [results, setResults]           = useState<any>(null)
   const [error, setError]               = useState<string | null>(null)
+  const [previewData, setPreviewData]   = useState<any>(null)
+  const [confirmedSide, setConfirmedSide]   = useState<Record<string, number>>({})
+  const [confirmedFront, setConfirmedFront] = useState<Record<string, number>>({})
   const [skillLevel, setSkillLevel]     = useState<SkillLevel>('middels')
   const [ballFlight, setBallFlight]     = useState<string[]>([])
   const [history, setHistory]           = useState<HistoryEntry[]>([])
@@ -535,7 +748,8 @@ export default function Home() {
     }
   }, [previewUrl, previewFront])
 
-  const isAnalyzing = ['uploading','analyzing','generating'].includes(stage)
+  const isAnalyzing  = ['uploading','analyzing','generating'].includes(stage)
+  const isPreviewing = stage === 'previewing'
   useEffect(() => {
     if (!isAnalyzing) { if (tipTimer.current) clearInterval(tipTimer.current); return }
     tipTimer.current = setInterval(() => {
@@ -616,6 +830,29 @@ export default function Home() {
     setStage('done')
   }
 
+  const handlePreview = async () => {
+    if (!videoFile && !videoFront) return
+    setError(null); setStage('previewing')
+    try {
+      const form = new FormData()
+      const primaryFile = videoFile ?? videoFront!
+      const secondaryFile = videoFile && videoFront ? videoFront : null
+      form.append('file', primaryFile)
+      if (secondaryFile) form.append('file_front', secondaryFile)
+      const res = await axios.post(`${BACKEND_URL}/preview`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setPreviewData(res.data)
+      setConfirmedSide(res.data.phase_indices ?? {})
+      setConfirmedFront(res.data.phase_indices_front ?? {})
+      setStage('preview')
+    } catch (err: any) {
+      let msg = 'Forhåndsvisning feilet. Prøv igjen.'
+      if (!err.response) msg = 'Kunne ikke koble til serveren. Sjekk internettforbindelsen din.'
+      setError(msg); setStage('idle')
+    }
+  }
+
   const handleAnalyze = async () => {
     if (!videoFile && !videoFront) return
     setError(null); setStage('uploading'); setElapsedSeconds(0)
@@ -629,6 +866,10 @@ export default function Home() {
       if (secondaryFile) form.append('file_front', secondaryFile)
       form.append('skill_level', skillLevel)
       form.append('ball_flight', ballFlight.join(','))
+      if (Object.keys(confirmedSide).length > 0)
+        form.append('frame_overrides_side', JSON.stringify(confirmedSide))
+      if (secondaryFile && Object.keys(confirmedFront).length > 0)
+        form.append('frame_overrides_front', JSON.stringify(confirmedFront))
       const res = await axios.post(`${BACKEND_URL}/analyze`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (e) => {
@@ -677,6 +918,7 @@ export default function Home() {
     setVideoFile(null); setPreviewUrl(null); setThumbnail(null)
     setVideoFront(null); setPreviewFront(null); setThumbFront(null)
     setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false); setBallFlight([]); setSelectedPhase(null)
+    setPreviewData(null); setConfirmedSide({}); setConfirmedFront({})
   }
 
   const handleShare = async () => {
@@ -973,6 +1215,21 @@ export default function Home() {
                 </div>
               )}
             </motion.div>
+          )}
+
+          {/* ══════════════════════ PREVIEW ══════════════════════ */}
+          {stage === 'preview' && previewData && (
+            <FrameConfirmStep
+              previewData={previewData}
+              sideUrl={previewUrl}
+              frontUrl={previewFront}
+              confirmedSide={confirmedSide}
+              setConfirmedSide={setConfirmedSide}
+              confirmedFront={confirmedFront}
+              setConfirmedFront={setConfirmedFront}
+              onConfirm={handleAnalyze}
+              onSkip={handleAnalyze}
+            />
           )}
 
           {/* ══════════════════════ PROGRESS ══════════════════════ */}
@@ -1355,7 +1612,7 @@ export default function Home() {
       {/* ══════════════════ FIXED BOTTOM CTA ══════════════════ */}
 
       <AnimatePresence>
-        {stage === 'idle' && !results && (videoFile || videoFront) && (
+        {(stage === 'idle' || stage === 'previewing') && !results && (videoFile || videoFront) && (
           <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
             transition={{ duration: 0.4, ease }} className="fixed bottom-0 inset-x-0 z-30">
             <div className="max-w-xl mx-auto px-5 pb-6 pt-4"
@@ -1370,7 +1627,7 @@ export default function Home() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={handleAnalyze} disabled={!videoFile && !videoFront}
+              <motion.button whileTap={{ scale: 0.97 }} onClick={handlePreview} disabled={!videoFile && !videoFront}
                 className="w-full py-4 rounded-2xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 style={{
                   background: (videoFile || videoFront) ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'rgba(0,0,0,0.07)',
@@ -1378,12 +1635,43 @@ export default function Home() {
                   boxShadow: (videoFile || videoFront) ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 32px rgba(5,150,105,0.4)' : 'none',
                 }}>
                 <span className="flex items-center justify-center gap-2">
-                  <Sparkles size={18} className={(videoFile || videoFront) ? 'text-white/80' : ''} />
-                  Analyser sving
-                  {(videoFile || videoFront) && <ChevronRight size={16} />}
+                  {isPreviewing
+                    ? <><Loader2 size={18} className="animate-spin" /> Forbereder…</>
+                    : <><Sparkles size={18} className={(videoFile || videoFront) ? 'text-white/80' : ''} />
+                        Analyser sving
+                        {(videoFile || videoFront) && <ChevronRight size={16} />}
+                      </>
+                  }
                 </span>
               </motion.button>
 
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {stage === 'preview' && (
+          <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+            transition={{ duration: 0.4, ease }} className="fixed bottom-0 inset-x-0 z-30">
+            <div className="max-w-xl mx-auto px-5 pb-6 pt-4"
+              style={{ background: 'linear-gradient(to top, rgba(245,245,247,0.98) 65%, transparent)' }}>
+              <motion.button whileTap={{ scale: 0.97 }} onClick={handleAnalyze}
+                className="w-full py-4 rounded-2xl font-bold text-lg text-white"
+                style={{
+                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 32px rgba(5,150,105,0.4)',
+                }}>
+                <span className="flex items-center justify-center gap-2">
+                  <Sparkles size={18} className="text-white/80" />
+                  Start analyse
+                  <ChevronRight size={16} />
+                </span>
+              </motion.button>
+              <button onClick={() => setStage('idle')}
+                className="w-full text-center text-sm text-black/35 hover:text-black/55 transition-colors py-2 mt-1">
+                ← Tilbake
+              </button>
             </div>
           </motion.div>
         )}

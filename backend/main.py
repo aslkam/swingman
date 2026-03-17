@@ -204,7 +204,45 @@ def detect_phase_indices(video_path: str, rotation: int, total_frames: int) -> d
     }
 
 
-def analyze_video(video_path: str) -> tuple[dict, dict]:
+def extract_keyframes_for_preview(video_path: str) -> dict:
+    """Rask preview: motion-basert keyframe-deteksjon uten pose-analyse."""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        raise ValueError("Cannot open video file")
+    rotation = get_video_rotation(cap)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+    cap.release()
+
+    phase_indices = detect_phase_indices(video_path, rotation, total_frames)
+    targets = set(phase_indices.values())
+
+    cap = cv2.VideoCapture(video_path)
+    captured: dict[int, object] = {}
+    fc = 0
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        if fc in targets:
+            captured[fc] = apply_rotation(frame, rotation).copy()
+        fc += 1
+    cap.release()
+
+    keyframes = {}
+    for phase, idx in phase_indices.items():
+        if idx in captured:
+            keyframes[phase] = frame_to_base64(captured[idx])
+
+    return {
+        'phase_indices': phase_indices,
+        'keyframes': keyframes,
+        'total_frames': total_frames,
+        'fps': fps,
+    }
+
+
+def analyze_video(video_path: str, frame_overrides: dict | None = None) -> tuple[dict, dict]:
     """Analyze golf swing video with MediaPipe. Returns (measurements, keyframe_images)."""
     cap = cv2.VideoCapture(video_path)
 
@@ -215,8 +253,11 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     cap.release()
 
-    # Første pass: finn de riktige frame-indeksene basert på bevegelse
-    phase_indices = detect_phase_indices(video_path, rotation, total_frames)
+    # Bruk brukerens overstyring hvis gitt, ellers auto-deteksjon
+    if frame_overrides:
+        phase_indices = {k: int(v) for k, v in frame_overrides.items()}
+    else:
+        phase_indices = detect_phase_indices(video_path, rotation, total_frames)
     target_indices = set(phase_indices.values())
 
     # Andre pass: pose-analyse + hent nøkkelframes
@@ -471,12 +512,63 @@ async def health():
     return {"status": "ok"}
 
 
+@app.post("/preview")
+async def preview_swing(
+    file: UploadFile | None = File(default=None),
+    file_front: UploadFile | None = File(default=None),
+):
+    """
+    Rask forhåndsvisning: returnerer auto-detekterte keyframes uten AI-analyse.
+    Brukes for å la brukeren bekrefte/justere frames før full analyse.
+    """
+    if not file and not file_front:
+        raise HTTPException(status_code=400, detail="Minst én video er påkrevd.")
+
+    primary = file if (file and file.filename) else file_front
+    if primary.content_type not in ["video/mp4", "video/quicktime"]:
+        raise HTTPException(status_code=400, detail="Kun MP4 og MOV er støttet")
+
+    contents = await primary.read()
+    if len(contents) > 100 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Videoen er for stor. Maks 100MB.")
+
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+        tmp.write(contents)
+        tmp_path = tmp.name
+
+    tmp_front_path = None
+    try:
+        result = extract_keyframes_for_preview(tmp_path)
+
+        if file and file.filename and file_front and file_front.filename:
+            contents_front = await file_front.read()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_f:
+                tmp_f.write(contents_front)
+                tmp_front_path = tmp_f.name
+            front = extract_keyframes_for_preview(tmp_front_path)
+            result['phase_indices_front'] = front['phase_indices']
+            result['keyframes_front'] = front['keyframes']
+            result['total_frames_front'] = front['total_frames']
+            result['fps_front'] = front['fps']
+
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Preview feilet: {str(e)}")
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+        if tmp_front_path and os.path.exists(tmp_front_path):
+            os.remove(tmp_front_path)
+
+
 @app.post("/analyze")
 async def analyze_swing(
     file: UploadFile | None = File(default=None),
     file_front: UploadFile | None = File(default=None),
     skill_level: str = Form(default="middels"),
     ball_flight: str = Form(default=""),
+    frame_overrides_side: str = Form(default=""),
+    frame_overrides_front: str = Form(default=""),
 ):
     """
     Analyze a golf swing video
@@ -508,8 +600,12 @@ async def analyze_swing(
 
         tmp_front_path = None
         try:
+            # Parse frame overrides fra bruker (hvis tilgjengelig)
+            overrides_side = json.loads(frame_overrides_side) if frame_overrides_side else None
+            overrides_front_parsed = json.loads(frame_overrides_front) if frame_overrides_front else None
+
             # Analyze primary video
-            measurements, keyframe_images = analyze_video(tmp_path)
+            measurements, keyframe_images = analyze_video(tmp_path, overrides_side)
             if not measurements:
                 raise HTTPException(status_code=400, detail="Kunne ikke analysere videoen. Prøv en annen video.")
 
@@ -520,7 +616,7 @@ async def analyze_swing(
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_f:
                     tmp_f.write(contents_front)
                     tmp_front_path = tmp_f.name
-                _, keyframe_images_front = analyze_video(tmp_front_path)
+                _, keyframe_images_front = analyze_video(tmp_front_path, overrides_front_parsed)
 
             # Get coaching feedback
             feedback = get_coaching_feedback(measurements, keyframe_images, skill_level, ball_flight, keyframe_images_front)
