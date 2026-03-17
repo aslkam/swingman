@@ -380,7 +380,7 @@ async def health():
 
 @app.post("/analyze")
 async def analyze_swing(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(default=None),
     file_front: UploadFile | None = File(default=None),
     skill_level: str = Form(default="middels"),
     ball_flight: str = Form(default=""),
@@ -392,31 +392,38 @@ async def analyze_swing(
     """
     
     try:
-        # Validate file type
-        if file.content_type not in ["video/mp4", "video/quicktime"]:
+        # Minst én video kreves
+        if not file and not file_front:
+            raise HTTPException(status_code=400, detail="Minst én video er påkrevd.")
+
+        # Bruk sidevideo som primær, ellers frontvideo
+        primary = file if (file and file.filename) else file_front
+        secondary = file_front if (file and file.filename and file_front and file_front.filename) else None
+
+        if primary.content_type not in ["video/mp4", "video/quicktime"]:
             raise HTTPException(status_code=400, detail="Kun MP4 og MOV er støttet")
 
         # Check file size (100MB limit)
-        contents = await file.read()
+        contents = await primary.read()
         if len(contents) > 100 * 1024 * 1024:
             raise HTTPException(status_code=400, detail="Videoen er for stor. Maks 100MB.")
-        
+
         # Save temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
             tmp.write(contents)
             tmp_path = tmp.name
-        
+
         tmp_front_path = None
         try:
-            # Analyze side video
+            # Analyze primary video
             measurements, keyframe_images = analyze_video(tmp_path)
             if not measurements:
                 raise HTTPException(status_code=400, detail="Kunne ikke analysere videoen. Prøv en annen video.")
 
-            # Analyze front video (optional)
+            # Analyze secondary video (optional)
             keyframe_images_front = None
-            if file_front and file_front.filename:
-                contents_front = await file_front.read()
+            if secondary:
+                contents_front = await secondary.read()
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_f:
                     tmp_f.write(contents_front)
                     tmp_front_path = tmp_f.name
