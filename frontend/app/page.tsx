@@ -501,83 +501,84 @@ const PHASE_HINTS: Record<string, string> = {
   follow_through: 'Finn framen der svingen er ferdig — vekten på venstre fot, hofter vendt mot målet, køllen bak ryggen.',
 }
 
-// Én delt video per kilde (i FrameConfirmStep) — unngår 4 parallelle loads.
-// Canvas-capture ved slider-drag for pålitelig bilde-oppdatering.
+// Viser video direkte i kortet (synlig) — iOS laster alltid synlige video-elementer.
+// Setter currentTime ved slider-drag. Ingen canvas, ingen skjulte elementer.
 function PhaseVideoCard({
-  phase, videoRef, fps, totalFrames, frameIdx, onChange, changed, defaultImage, log,
+  phase, src, fps, totalFrames, frameIdx, onChange, changed, defaultImage,
 }: {
-  phase: string; videoRef: React.RefObject<HTMLVideoElement>; fps: number; totalFrames: number
+  phase: string; src: string | null; fps: number; totalFrames: number
   frameIdx: number; onChange: (v: number) => void; changed: boolean
-  defaultImage?: string; log: (msg: string) => void
+  defaultImage?: string
 }) {
-  const [displaySrc, setDisplaySrc] = React.useState<string | null>(
-    defaultImage ? `data:image/jpeg;base64,${defaultImage}` : null
-  )
+  const videoRef = React.useRef<HTMLVideoElement>(null)
+  const [videoReady, setVideoReady] = React.useState(false)
+
+  // Sett startposisjon når metadata er lastet
+  const handleMetadata = () => {
+    const v = videoRef.current
+    if (!v) return
+    v.currentTime = frameIdx / fps
+  }
 
   const handleSlider = (newIdx: number) => {
     onChange(newIdx)
     const v = videoRef.current
-    if (!v) { log(`ERR ${phase}: ref=null`); return }
-    log(`${phase}: drag→${newIdx} readyState=${v.readyState}`)
-    const capture = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = v.videoWidth || 640
-      canvas.height = v.videoHeight || 480
-      canvas.getContext('2d')?.drawImage(v, 0, 0)
-      setDisplaySrc(canvas.toDataURL('image/jpeg', 0.85))
-      log(`${phase}: captured ✓`)
-    }
-    const doSeek = () => {
+    if (v && v.readyState >= 1) {
       v.currentTime = newIdx / fps
-      log(`${phase}: seeking to ${(newIdx/fps).toFixed(1)}s`)
-      v.addEventListener('seeked', capture, { once: true })
-    }
-    if (v.readyState >= 1) {
-      doSeek()
-    } else {
-      log(`${phase}: readyState=${v.readyState} — tvinger lasting via play()`)
-      v.addEventListener('loadedmetadata', doSeek, { once: true })
-      // iOS-workaround: play() under brukergestur tvinger videoen til å laste
-      const p = v.play()
-      if (p) p.then(() => v.pause()).catch(() => { v.load() })
-      else v.load()
     }
   }
 
   return (
     <div className="rounded-3xl overflow-hidden"
-      style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
-      <div style={{ position: 'relative', paddingTop: '177.78%', background: '#0a0a0a' }}>
-        {displaySrc
-          ? <img src={displaySrc} alt={phase}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
-          : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Loader2 size={24} className="text-white/30 animate-spin" />
-            </div>
-        }
-        <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)' }} />
-        <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
-          <div className="flex items-center justify-between mb-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-base">{PHASE_ICONS[phase]}</span>
-              <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
-            </div>
-            <span className="text-xs font-mono" style={{ color: changed ? '#6ee7b7' : 'rgba(255,255,255,0.5)' }}>
-              {(frameIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
-            </span>
+      style={{ boxShadow: '0 2px 20px rgba(0,0,0,0.12)' }}>
+      {/* Video-container — 120% gir litt crop (smal landscape-stil) */}
+      <div style={{ position: 'relative', paddingTop: '120%', background: '#0a0a0a' }}>
+        {/* Backend-keyframe vises inntil video er søkt til riktig frame */}
+        {defaultImage && !videoReady && (
+          <img src={`data:image/jpeg;base64,${defaultImage}`} alt={phase}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+        {!defaultImage && !videoReady && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Loader2 size={24} className="text-white/30 animate-spin" />
           </div>
+        )}
+        {src && (
+          <video ref={videoRef} src={src} muted playsInline preload="auto"
+            onLoadedMetadata={handleMetadata}
+            onSeeked={() => setVideoReady(true)}
+            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
+              opacity: videoReady ? 1 : 0 }}
+          />
+        )}
+
+        {/* Gradient + tittel øverst */}
+        <div className="absolute inset-x-0 top-0 h-20 pointer-events-none"
+          style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)' }} />
+        <div className="absolute top-3 left-3 right-3 pointer-events-none flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">{PHASE_ICONS[phase]}</span>
+            <span className="text-white text-sm font-semibold" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{PHASE_LABELS_FULL[phase]}</span>
+          </div>
+          <span className="text-xs font-mono" style={{ color: changed ? '#6ee7b7' : 'rgba(255,255,255,0.6)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+            {(frameIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
+          </span>
         </div>
-      </div>
-      <div className="px-4 pt-3 pb-1">
-        <p className="text-xs text-black/50 leading-snug mb-3">{PHASE_HINTS[phase]}</p>
-        <input type="range" min={0} max={totalFrames - 1} value={frameIdx}
-          onChange={(e) => handleSlider(Number(e.target.value))}
-          className="w-full accent-emerald-500" style={{ height: 24 }}
-        />
-        <div className="flex justify-between mt-0.5 mb-2">
-          <span className="text-[10px] text-black/25">0s</span>
-          <span className="text-[10px] text-black/25">{(totalFrames / fps).toFixed(0)}s totalt</span>
+
+        {/* Gradient + slider nederst — over videoen */}
+        <div className="absolute inset-x-0 bottom-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)', height: '40%' }} />
+        <div className="absolute inset-x-0 bottom-0 px-4 pb-3">
+          <p className="text-[11px] leading-snug mb-2 pointer-events-none"
+            style={{ color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{PHASE_HINTS[phase]}</p>
+          <input type="range" min={0} max={totalFrames - 1} value={frameIdx}
+            onChange={(e) => handleSlider(Number(e.target.value))}
+            className="w-full accent-emerald-400" style={{ height: 28 }}
+          />
+          <div className="flex justify-between mt-0.5 pointer-events-none">
+            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>0s</span>
+            <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.4)' }}>{(totalFrames / fps).toFixed(0)}s totalt</span>
+          </div>
         </div>
       </div>
     </div>
@@ -597,44 +598,14 @@ function FrameConfirmStep({
   confirmedFront: Record<string, number>; setConfirmedFront: (v: Record<string, number>) => void
 }) {
   const hasSecondary = !!secondaryUrl && !!previewData.phase_indices_front
-  const primaryVideoRef   = React.useRef<HTMLVideoElement>(null)
-  const secondaryVideoRef = React.useRef<HTMLVideoElement>(null)
-  const [dbg, setDbg] = React.useState<string[]>([])
-  const log = (msg: string) => setDbg(prev => [`${new Date().toLocaleTimeString()}: ${msg}`, ...prev].slice(0, 12))
-
-  // iOS Safari ignorerer preload på display:none — last én gang ved mount
-  React.useEffect(() => {
-    const load = (ref: React.RefObject<HTMLVideoElement>) => {
-      const v = ref.current
-      if (v && v.readyState === 0) { v.load(); }
-    }
-    load(primaryVideoRef)
-    load(secondaryVideoRef)
-  }, [])
 
   return (
     <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
-      {/* opacity:0 + fixed i stedet for display:none — iOS laster ikke skjulte videoer */}
-      {primaryUrl   && <video ref={primaryVideoRef}   src={primaryUrl}   muted playsInline preload="auto"
-        style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }} />}
-      {secondaryUrl && <video ref={secondaryVideoRef} src={secondaryUrl} muted playsInline preload="auto"
-        style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }} />}
-
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#1d1d1f' }}>Bekreft nøkkelbilder</h2>
         <p className="text-black/45 text-sm mt-1.5 leading-relaxed">
           Vi har valgt disse bildene automatisk. Dra sliderene for å justere.
         </p>
-      </div>
-
-      {/* 🐛 DEBUG-panel — fjern etter feilsøking */}
-      <div className="rounded-2xl p-3 font-mono text-[10px] leading-relaxed space-y-0.5"
-        style={{ background: 'rgba(0,0,0,0.85)', color: '#4ade80' }}>
-        <p className="font-bold text-white/50 mb-1">DEBUG</p>
-        <p>primaryRef: {primaryVideoRef.current ? `✓ readyState=${primaryVideoRef.current.readyState} dur=${primaryVideoRef.current.duration?.toFixed(1)}s` : '✗ null'}</p>
-        <p>secondaryRef: {secondaryVideoRef.current ? `✓ readyState=${secondaryVideoRef.current.readyState}` : '✗ null'}</p>
-        <p>primaryUrl: {primaryUrl ? primaryUrl.slice(0,40) : 'null'}</p>
-        {dbg.map((l, i) => <p key={i} style={{ color: l.includes('ERR') ? '#f87171' : '#4ade80' }}>{l}</p>)}
       </div>
 
       {primaryUrl && (
@@ -644,12 +615,11 @@ function FrameConfirmStep({
             const autoIdx = previewData.phase_indices?.[phase] ?? 0
             const curIdx  = confirmedSide[phase] ?? autoIdx
             return (
-              <PhaseVideoCard key={`primary-${phase}`} phase={phase} videoRef={primaryVideoRef}
+              <PhaseVideoCard key={`primary-${phase}`} phase={phase} src={primaryUrl}
                 fps={previewData.fps ?? 30} totalFrames={previewData.total_frames ?? 100}
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 defaultImage={previewData.keyframes?.[phase]}
                 onChange={(v) => setConfirmedSide({ ...confirmedSide, [phase]: v })}
-                log={log}
               />
             )
           })}
@@ -663,12 +633,11 @@ function FrameConfirmStep({
             const autoIdx = previewData.phase_indices_front?.[phase] ?? 0
             const curIdx  = confirmedFront[phase] ?? autoIdx
             return (
-              <PhaseVideoCard key={`secondary-${phase}`} phase={phase} videoRef={secondaryVideoRef}
+              <PhaseVideoCard key={`secondary-${phase}`} phase={phase} src={secondaryUrl}
                 fps={previewData.fps_front ?? 30} totalFrames={previewData.total_frames_front ?? 100}
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 defaultImage={previewData.keyframes_front?.[phase]}
                 onChange={(v) => setConfirmedFront({ ...confirmedFront, [phase]: v })}
-                log={log}
               />
             )
           })}
