@@ -494,6 +494,12 @@ const PHASE_LABELS_FULL: Record<string, string> = {
 const PHASE_ICONS: Record<string, string> = {
   address: '🧍', backswing_top: '🔄', impact: '💥', follow_through: '🏌️',
 }
+const PHASE_HINTS: Record<string, string> = {
+  address:       'Finn framen der du står klar over ballen — føttene på plass, køllen bak ballen, kroppen avslappet.',
+  backswing_top: 'Finn det høyeste punktet i backswingen — der køllen er øverst og kroppen er "ladd" før nedswingen starter.',
+  impact:        'Finn framen der køllehodet treffer ballen. Dette er det viktigste bildet — zoom gjerne inn med øynene og se etter køllen nær bakken.',
+  follow_through: 'Finn framen der svingen er ferdig — vekten på venstre fot, hofter vendt mot målet, køllen bak ryggen.',
+}
 
 // Hvert fase-kort har sin egen <video>-element som vi setter currentTime på direkte.
 // Browseren oppdaterer bildet umiddelbart — ingen canvas / canvas-capture nødvendig.
@@ -520,23 +526,26 @@ function PhaseVideoCard({
         <video ref={videoRef} src={videoUrl} muted playsInline preload="auto"
           className="w-full h-full object-contain" />
         <div className="absolute inset-0 pointer-events-none"
-          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }} />
-        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between pointer-events-none">
-          <div className="flex items-center gap-1.5">
-            <span className="text-base">{PHASE_ICONS[phase]}</span>
-            <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)' }} />
+        <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-base">{PHASE_ICONS[phase]}</span>
+              <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
+            </div>
+            <span className="text-xs font-mono" style={{ color: changed ? '#6ee7b7' : 'rgba(255,255,255,0.5)' }}>
+              {(frameIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
+            </span>
           </div>
-          <span className="text-xs font-mono" style={{ color: changed ? '#6ee7b7' : 'rgba(255,255,255,0.5)' }}>
-            {(frameIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
-          </span>
         </div>
       </div>
-      <div className="px-4 py-3">
+      <div className="px-4 pt-3 pb-1">
+        <p className="text-xs text-black/50 leading-snug mb-3">{PHASE_HINTS[phase]}</p>
         <input type="range" min={0} max={totalFrames - 1} value={frameIdx}
           onChange={(e) => onChange(Number(e.target.value))}
           className="w-full accent-emerald-500" style={{ height: 24 }}
         />
-        <div className="flex justify-between mt-0.5">
+        <div className="flex justify-between mt-0.5 mb-2">
           <span className="text-[10px] text-black/25">0s</span>
           <span className="text-[10px] text-black/25">{(totalFrames / fps).toFixed(0)}s totalt</span>
         </div>
