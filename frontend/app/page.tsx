@@ -1158,13 +1158,20 @@ export default function Home() {
 
                             {/* Tekst-innhold — scrollbar */}
                             <motion.div
-                              className="absolute bottom-0 left-0 right-0 overflow-y-auto"
-                              style={{ maxHeight: '60%' }}
+                              className="absolute bottom-0 left-0 right-0"
+                              style={{
+                                maxHeight: '60%',
+                                overflowY: 'scroll',
+                                WebkitOverflowScrolling: 'touch',
+                                touchAction: 'pan-y',
+                              }}
                               initial={{ opacity: 0, y: 12 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0 }}
                               transition={{ delay: 0.15, duration: 0.25 }}
                               onClick={(e) => e.stopPropagation()}
+                              onTouchStart={(e) => e.stopPropagation()}
+                              onTouchMove={(e) => e.stopPropagation()}
                             >
                               <div className="p-6">
                                 <div className="flex items-center gap-2.5 mb-4">
