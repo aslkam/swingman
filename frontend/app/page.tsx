@@ -495,94 +495,70 @@ const PHASE_ICONS: Record<string, string> = {
   address: '🧍', backswing_top: '🔄', impact: '💥', follow_through: '🏌️',
 }
 
+// Hvert fase-kort har sin egen <video>-element som vi setter currentTime på direkte.
+// Browseren oppdaterer bildet umiddelbart — ingen canvas / canvas-capture nødvendig.
+function PhaseVideoCard({
+  phase, videoUrl, fps, totalFrames, frameIdx, onChange, changed,
+}: {
+  phase: string; videoUrl: string; fps: number; totalFrames: number
+  frameIdx: number; onChange: (v: number) => void; changed: boolean
+}) {
+  const videoRef = React.useRef<HTMLVideoElement>(null)
+
+  React.useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    const seek = () => { v.currentTime = frameIdx / fps }
+    if (v.readyState >= 1) seek()
+    else v.addEventListener('loadedmetadata', seek, { once: true })
+  }, [frameIdx, fps])
+
+  return (
+    <div className="rounded-3xl overflow-hidden"
+      style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
+      <div className="relative" style={{ height: 200 }}>
+        <video ref={videoRef} src={videoUrl} muted playsInline preload="auto"
+          className="w-full h-full object-cover" />
+        <div className="absolute inset-0 pointer-events-none"
+          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }} />
+        <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between pointer-events-none">
+          <div className="flex items-center gap-1.5">
+            <span className="text-base">{PHASE_ICONS[phase]}</span>
+            <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
+          </div>
+          <span className="text-xs font-mono" style={{ color: changed ? '#6ee7b7' : 'rgba(255,255,255,0.5)' }}>
+            {(frameIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
+          </span>
+        </div>
+      </div>
+      <div className="px-4 py-3">
+        <input type="range" min={0} max={totalFrames - 1} value={frameIdx}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-full accent-emerald-500" style={{ height: 24 }}
+        />
+        <div className="flex justify-between mt-0.5">
+          <span className="text-[10px] text-black/25">0s</span>
+          <span className="text-[10px] text-black/25">{(totalFrames / fps).toFixed(0)}s totalt</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function FrameConfirmStep({
-  previewData,
-  sideUrl,
-  frontUrl,
-  confirmedSide,
-  setConfirmedSide,
-  confirmedFront,
-  setConfirmedFront,
-  onConfirm,
-  onSkip,
+  previewData, sideUrl, frontUrl,
+  confirmedSide, setConfirmedSide,
+  confirmedFront, setConfirmedFront,
 }: {
   previewData: any
-  sideUrl: string | null
-  frontUrl: string | null
-  confirmedSide: Record<string, number>
-  setConfirmedSide: (v: Record<string, number>) => void
-  confirmedFront: Record<string, number>
-  setConfirmedFront: (v: Record<string, number>) => void
-  onConfirm: () => void
-  onSkip: () => void
+  sideUrl: string | null; frontUrl: string | null
+  confirmedSide: Record<string, number>; setConfirmedSide: (v: Record<string, number>) => void
+  confirmedFront: Record<string, number>; setConfirmedFront: (v: Record<string, number>) => void
 }) {
-  // Lokale preview-bilder (data URL) – starter med backend-bilder
-  const [sideImgs, setSideImgs] = React.useState<Record<string, string>>(() => {
-    const out: Record<string, string> = {}
-    for (const p of PHASE_ORDER) {
-      if (previewData.keyframes?.[p]) out[p] = `data:image/jpeg;base64,${previewData.keyframes[p]}`
-    }
-    return out
-  })
-  const [frontImgs, setFrontImgs] = React.useState<Record<string, string>>(() => {
-    const out: Record<string, string> = {}
-    for (const p of PHASE_ORDER) {
-      if (previewData.keyframes_front?.[p]) out[p] = `data:image/jpeg;base64,${previewData.keyframes_front[p]}`
-    }
-    return out
-  })
-
-  const sideVideoRef  = React.useRef<HTMLVideoElement>(null)
-  const frontVideoRef = React.useRef<HTMLVideoElement>(null)
-  const seekingRef    = React.useRef<Record<string, boolean>>({})
-
-  const captureFromVideo = (
-    videoEl: HTMLVideoElement,
-    frameIdx: number,
-    fps: number,
-    cb: (dataUrl: string) => void,
-  ) => {
-    const doCapture = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width  = videoEl.videoWidth  || 640
-      canvas.height = videoEl.videoHeight || 480
-      canvas.getContext('2d')?.drawImage(videoEl, 0, 0)
-      cb(canvas.toDataURL('image/jpeg', 0.82))
-    }
-    videoEl.currentTime = frameIdx / fps
-    videoEl.addEventListener('seeked', () => {
-      requestAnimationFrame(() => requestAnimationFrame(doCapture))
-    }, { once: true })
-  }
-
-  const handleSideSlider = (phase: string, val: number) => {
-    setConfirmedSide({ ...confirmedSide, [phase]: val })
-    if (!sideVideoRef.current || seekingRef.current[`s-${phase}`]) return
-    seekingRef.current[`s-${phase}`] = true
-    captureFromVideo(sideVideoRef.current, val, previewData.fps ?? 30, (url) => {
-      setSideImgs(prev => ({ ...prev, [phase]: url }))
-      seekingRef.current[`s-${phase}`] = false
-    })
-  }
-
-  const handleFrontSlider = (phase: string, val: number) => {
-    setConfirmedFront({ ...confirmedFront, [phase]: val })
-    if (!frontVideoRef.current || seekingRef.current[`f-${phase}`]) return
-    seekingRef.current[`f-${phase}`] = true
-    captureFromVideo(frontVideoRef.current, val, previewData.fps_front ?? 30, (url) => {
-      setFrontImgs(prev => ({ ...prev, [phase]: url }))
-      seekingRef.current[`f-${phase}`] = false
-    })
-  }
-
-  const hasFront = !!frontUrl && !!previewData.keyframes_front
+  const hasFront = !!frontUrl && !!previewData.phase_indices_front
 
   return (
     <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
-      {/* Skjulte video-elementer for scrubbing */}
-      {sideUrl  && <video ref={sideVideoRef}  src={sideUrl}  muted playsInline preload="auto" className="hidden" />}
-      {frontUrl && <video ref={frontVideoRef} src={frontUrl} muted playsInline preload="auto" className="hidden" />}
-
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#1d1d1f' }}>Bekreft nøkkelbilder</h2>
         <p className="text-black/45 text-sm mt-1.5 leading-relaxed">
@@ -590,103 +566,35 @@ function FrameConfirmStep({
         </p>
       </div>
 
-      {/* Side-video kort */}
-      <div className="space-y-3">
-        {hasFront && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Fra siden</p>}
-        {PHASE_ORDER.map((phase) => {
-          const autoIdx = previewData.phase_indices?.[phase] ?? 0
-          const total   = previewData.total_frames ?? 100
-          const fps     = previewData.fps ?? 30
-          const curIdx  = confirmedSide[phase] ?? autoIdx
-          const img     = sideImgs[phase]
-          const changed = curIdx !== autoIdx
+      {sideUrl && (
+        <div className="space-y-3">
+          {hasFront && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Fra siden</p>}
+          {PHASE_ORDER.map((phase) => {
+            const autoIdx = previewData.phase_indices?.[phase] ?? 0
+            const curIdx  = confirmedSide[phase] ?? autoIdx
+            return (
+              <PhaseVideoCard key={phase} phase={phase} videoUrl={sideUrl}
+                fps={previewData.fps ?? 30} totalFrames={previewData.total_frames ?? 100}
+                frameIdx={curIdx} changed={curIdx !== autoIdx}
+                onChange={(v) => setConfirmedSide({ ...confirmedSide, [phase]: v })}
+              />
+            )
+          })}
+        </div>
+      )}
 
-          return (
-            <div key={phase} className="rounded-3xl overflow-hidden"
-              style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
-              {/* Bilde */}
-              <div className="relative" style={{ height: 180 }}>
-                {img
-                  ? <img src={img} alt={phase} className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center bg-black/5">
-                      <Loader2 size={20} className="text-black/25 animate-spin" />
-                    </div>
-                }
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }} />
-                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-base">{PHASE_ICONS[phase]}</span>
-                    <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
-                  </div>
-                  <span className="text-white/60 text-xs font-mono">
-                    #{curIdx} {changed && <span className="text-emerald-300">✓</span>}
-                  </span>
-                </div>
-              </div>
-              {/* Slider */}
-              <div className="px-4 py-3">
-                <input type="range" min={0} max={total - 1} value={curIdx}
-                  onChange={(e) => handleSideSlider(phase, Number(e.target.value))}
-                  className="w-full accent-emerald-500"
-                  style={{ height: 20 }}
-                />
-                <div className="flex justify-between mt-1">
-                  <span className="text-[10px] text-black/25">Frame 0</span>
-                  <span className="text-[10px] text-black/25">{(curIdx / fps).toFixed(1)}s</span>
-                  <span className="text-[10px] text-black/25">Frame {total - 1}</span>
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Front-video kort */}
-      {hasFront && (
+      {hasFront && frontUrl && (
         <div className="space-y-3">
           <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Forfra</p>
           {PHASE_ORDER.map((phase) => {
             const autoIdx = previewData.phase_indices_front?.[phase] ?? 0
-            const total   = previewData.total_frames_front ?? 100
-            const fps     = previewData.fps_front ?? 30
             const curIdx  = confirmedFront[phase] ?? autoIdx
-            const img     = frontImgs[phase]
-            const changed = curIdx !== autoIdx
-
             return (
-              <div key={phase} className="rounded-3xl overflow-hidden"
-                style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
-                <div className="relative" style={{ height: 180 }}>
-                  {img
-                    ? <img src={img} alt={phase} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center bg-black/5">
-                        <Loader2 size={20} className="text-black/25 animate-spin" />
-                      </div>
-                  }
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }} />
-                  <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-base">{PHASE_ICONS[phase]}</span>
-                      <span className="text-white text-sm font-semibold">{PHASE_LABELS_FULL[phase]}</span>
-                    </div>
-                    <span className="text-white/60 text-xs font-mono">
-                      #{curIdx} {changed && <span className="text-emerald-300">✓</span>}
-                    </span>
-                  </div>
-                </div>
-                <div className="px-4 py-3">
-                  <input type="range" min={0} max={total - 1} value={curIdx}
-                    onChange={(e) => handleFrontSlider(phase, Number(e.target.value))}
-                    className="w-full accent-emerald-500"
-                    style={{ height: 20 }}
-                  />
-                  <div className="flex justify-between mt-1">
-                    <span className="text-[10px] text-black/25">Frame 0</span>
-                    <span className="text-[10px] text-black/25">{(curIdx / fps).toFixed(1)}s</span>
-                    <span className="text-[10px] text-black/25">Frame {total - 1}</span>
-                  </div>
-                </div>
-              </div>
+              <PhaseVideoCard key={phase} phase={phase} videoUrl={frontUrl}
+                fps={previewData.fps_front ?? 30} totalFrames={previewData.total_frames_front ?? 100}
+                frameIdx={curIdx} changed={curIdx !== autoIdx}
+                onChange={(v) => setConfirmedFront({ ...confirmedFront, [phase]: v })}
+              />
             )
           })}
         </div>
@@ -1227,8 +1135,6 @@ export default function Home() {
               setConfirmedSide={setConfirmedSide}
               confirmedFront={confirmedFront}
               setConfirmedFront={setConfirmedFront}
-              onConfirm={handleAnalyze}
-              onSkip={handleAnalyze}
             />
           )}
 
