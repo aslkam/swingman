@@ -918,7 +918,7 @@ export default function Home() {
                   }}>svingen din.</span>
                 </h1>
                 <p className="text-black/45 mt-3 text-base leading-relaxed">
-                  Last opp en video og få personlig coaching fra AI.
+                  Film svingen din fra siden og få personlig coaching fra AI.
                 </p>
               </div>
 
@@ -969,15 +969,6 @@ export default function Home() {
                   <span className="text-[10px] text-black/25 ml-1">+4 forbedringer</span>
                 </div>
               </motion.button>
-
-              {/* To videoer — hint-banner */}
-              <div className="flex items-center gap-2.5 rounded-2xl px-4 py-3"
-                style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)' }}>
-                <span className="text-base">📐</span>
-                <p className="text-sm text-emerald-800/75 leading-snug">
-                  <strong>Minst én video er nødvendig.</strong> To videoer gir klart best resultat — men én er nok til å komme i gang.
-                </p>
-              </div>
 
               {/* Drop zone — én video */}
               <VideoDropZone
