@@ -2,7 +2,7 @@
 
 **Sist jobbet:** Mars 2026
 **Fase:** MVP bygget, trenger polish og testing
-**Live på:** https://swingman-six.vercel.app
+**Live på:** https://www.swingman.no
 
 ---
 

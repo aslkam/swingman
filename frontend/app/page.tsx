@@ -864,7 +864,7 @@ export default function Home() {
   }
 
   const handleShare = async () => {
-    const text = `Jeg fikk ${results?.score ?? '–'}/100 på Swingman! 🏌️\n${results?.summary ?? ''}\n\nhttps://swingman-six.vercel.app`
+    const text = `Jeg fikk ${results?.score ?? '–'}/100 på Swingman! 🏌️\n${results?.summary ?? ''}\n\nhttps://www.swingman.no`
     if (navigator.share) { try { await navigator.share({ title: 'Min svingscore', text }) } catch (_) {} }
     else { try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2500) } catch (_) {} }
   }
