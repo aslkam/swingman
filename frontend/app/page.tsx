@@ -514,17 +514,22 @@ function PhaseVideoCard({
   React.useEffect(() => {
     const v = videoRef.current
     if (!v) return
-    const seek = () => { v.currentTime = frameIdx / fps }
-    if (v.readyState >= 1) seek()
-    else v.addEventListener('loadedmetadata', seek, { once: true })
+    const doSeek = () => { v.currentTime = frameIdx / fps }
+    if (v.readyState >= 2) {
+      doSeek()
+    } else {
+      v.load()
+      v.addEventListener('loadeddata', doSeek, { once: true })
+    }
   }, [frameIdx, fps])
 
   return (
     <div className="rounded-3xl overflow-hidden"
       style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
-      <div className="relative w-full" style={{ aspectRatio: '9/16', background: '#0a0a0a' }}>
+      {/* Padding-top-trick: fungerer på alle browsere inkl. eldre iOS */}
+      <div style={{ position: 'relative', paddingTop: '177.78%', background: '#0a0a0a' }}>
         <video ref={videoRef} src={videoUrl} muted playsInline preload="auto"
-          className="w-full h-full object-contain" />
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }} />
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)' }} />
         <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
