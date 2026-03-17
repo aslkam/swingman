@@ -535,9 +535,12 @@ function PhaseVideoCard({
     if (v.readyState >= 1) {
       doSeek()
     } else {
-      log(`${phase}: venter på load (readyState=${v.readyState})…`)
+      log(`${phase}: readyState=${v.readyState} — tvinger lasting via play()`)
       v.addEventListener('loadedmetadata', doSeek, { once: true })
-      if (v.readyState === 0) v.load()  // start kun én gang
+      // iOS-workaround: play() under brukergestur tvinger videoen til å laste
+      const p = v.play()
+      if (p) p.then(() => v.pause()).catch(() => { v.load() })
+      else v.load()
     }
   }
 
