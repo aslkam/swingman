@@ -502,7 +502,7 @@ function VideoDropZone({
               <Upload size={20} className="text-emerald-600" />
             </div>
             <p className="text-black/45 text-sm">Trykk eller dra video hit</p>
-            <p className="text-black/25 text-xs">MP4 · MOV · maks 50 MB</p>
+            <p className="text-black/25 text-xs">MP4 · MOV · maks 100 MB</p>
           </div>
         )}
       </div>
@@ -599,7 +599,7 @@ export default function Home() {
   }
 
   const pickFile = useCallback(async (file: File) => {
-    if (file.size > 50 * 1024 * 1024) { setError('Videoen er for stor. Maks 50 MB.'); return }
+    if (file.size > 100 * 1024 * 1024) { setError('Videoen er for stor. Maks 100 MB.'); return }
     if (previewUrl) URL.revokeObjectURL(previewUrl)
     const url = URL.createObjectURL(file)
     setVideoFile(file); setPreviewUrl(url); setError(null); setResults(null); setThumbnail(null)
@@ -608,7 +608,7 @@ export default function Home() {
   }, [previewUrl])
 
   const pickFileFront = useCallback(async (file: File) => {
-    if (file.size > 50 * 1024 * 1024) { setError('Videoen er for stor. Maks 50 MB.'); return }
+    if (file.size > 100 * 1024 * 1024) { setError('Videoen er for stor. Maks 100 MB.'); return }
     if (previewFront) URL.revokeObjectURL(previewFront)
     const url = URL.createObjectURL(file)
     setVideoFront(file); setPreviewFront(url); setError(null)

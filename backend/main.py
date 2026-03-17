@@ -374,10 +374,10 @@ async def analyze_swing(
         if file.content_type not in ["video/mp4", "video/quicktime"]:
             raise HTTPException(status_code=400, detail="Kun MP4 og MOV er støttet")
 
-        # Check file size (50MB limit)
+        # Check file size (100MB limit)
         contents = await file.read()
-        if len(contents) > 50 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Videoen er for stor. Maks 50MB.")
+        if len(contents) > 100 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="Videoen er for stor. Maks 100MB.")
         
         # Save temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
