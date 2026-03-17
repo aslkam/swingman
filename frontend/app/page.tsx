@@ -529,6 +529,7 @@ export default function Home() {
   const [history, setHistory]           = useState<HistoryEntry[]>([])
   const [isDemo, setIsDemo]             = useState(false)
   const [showFull, setShowFull]         = useState(false)
+  const [selectedPhase, setSelectedPhase] = useState<string | null>(null)
   const [copied, setCopied]             = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [tipIndex, setTipIndex]         = useState(0)
@@ -679,7 +680,7 @@ export default function Home() {
     if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     setVideoFile(null); setPreviewUrl(null); setThumbnail(null)
     setVideoFront(null); setPreviewFront(null); setThumbFront(null)
-    setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false); setBallFlight([])
+    setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false); setBallFlight([]); setSelectedPhase(null)
   }
 
   const handleShare = async () => {
@@ -1066,23 +1067,79 @@ export default function Home() {
                 </motion.div>
               )}
 
-              {/* ── Keyframes ── */}
+              {/* ── Oppsummering + Keyframes ── */}
               {results.keyframes && Object.keys(results.keyframes).length > 0 && (
-                <motion.div variants={item} className="space-y-2">
-                  <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Faser</p>
+                <motion.div variants={item} className="space-y-3">
+                  {/* Kort oppsummering */}
+                  <div className="rounded-2xl px-4 py-3.5"
+                    style={{ background: 'rgba(255,255,255,0.75)', border: '1px solid rgba(0,0,0,0.08)', backdropFilter: 'blur(20px)' }}>
+                    <p className="text-sm text-black/65 leading-relaxed">
+                      {results.summary?.split(/[.!]/)[0]?.trim()}.
+                    </p>
+                  </div>
+
+                  <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Faser — trykk for detaljer</p>
                   <div className="grid grid-cols-2 gap-2.5">
-                    {(['address','backswing_top','impact','follow_through'] as const).map(phase => (
-                      results.keyframes[phase] ? (
-                        <div key={phase} className="relative rounded-2xl overflow-hidden group"
-                          style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                    {(['address','backswing_top','impact','follow_through'] as const).map(phase => {
+                      if (!results.keyframes[phase]) return null
+                      // KPI: finn forbedringer for denne fasen
+                      const phaseImprovements = (results.improvements ?? []).filter((imp: any) => imp.phase === phase)
+                      const kpi = phaseImprovements.some((i: any) => i.impact === 'high') ? 'red'
+                        : phaseImprovements.some((i: any) => i.impact === 'medium') ? 'yellow'
+                        : 'green'
+                      const kpiStyle = kpi === 'red'
+                        ? { bg: 'rgba(220,38,38,0.85)', label: 'Fokus her' }
+                        : kpi === 'yellow'
+                        ? { bg: 'rgba(217,119,6,0.85)', label: 'Kan forbedres' }
+                        : { bg: 'rgba(5,150,105,0.85)', label: 'Bra' }
+                      const isOpen = selectedPhase === phase
+
+                      return (
+                        <div key={phase}
+                          className="relative rounded-2xl overflow-hidden cursor-pointer"
+                          style={{ border: `1.5px solid ${isOpen ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.08)'}`, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
+                          onClick={() => setSelectedPhase(isOpen ? null : phase)}
+                        >
+                          {/* Bilde */}
                           <img src={`data:image/jpeg;base64,${results.keyframes[phase]}`} alt={PHASE_LABELS[phase]}
-                            className="w-full aspect-[3/4] object-cover object-top group-hover:scale-105 transition-transform duration-700" />
-                          <div className="absolute inset-0"
-                            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }} />
-                          <p className="absolute bottom-2.5 left-2.5 text-white text-sm font-semibold">{PHASE_LABELS[phase]}</p>
+                            className={`w-full aspect-[3/4] object-cover object-top transition-all duration-500 ${isOpen ? 'blur-sm scale-105 brightness-50' : ''}`} />
+
+                          {/* Gradient + fasenavn (alltid synlig) */}
+                          {!isOpen && (
+                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }} />
+                          )}
+                          <p className={`absolute bottom-2.5 left-2.5 text-white text-sm font-semibold transition-opacity ${isOpen ? 'opacity-0' : 'opacity-100'}`}>
+                            {PHASE_LABELS[phase]}
+                          </p>
+
+                          {/* KPI-badge */}
+                          {!isOpen && (
+                            <span className="absolute top-2.5 right-2.5 text-white text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              style={{ background: kpiStyle.bg, backdropFilter: 'blur(8px)' }}>
+                              {kpiStyle.label}
+                            </span>
+                          )}
+
+                          {/* Overlay med detaljer */}
+                          {isOpen && (
+                            <div className="absolute inset-0 flex flex-col justify-between p-3 overflow-y-auto">
+                              <div>
+                                <p className="text-white text-xs font-bold uppercase tracking-widest mb-2 opacity-70">{PHASE_LABELS[phase]}</p>
+                                {phaseImprovements.length > 0 ? phaseImprovements.map((imp: any, i: number) => (
+                                  <div key={i} className="mb-2.5">
+                                    <p className="text-white font-semibold text-xs leading-snug">{imp.area}</p>
+                                    <p className="text-white/75 text-[11px] leading-relaxed mt-0.5">{imp.tip}</p>
+                                  </div>
+                                )) : (
+                                  <p className="text-white/80 text-xs leading-relaxed">Ingen vesentlige feil i denne fasen.</p>
+                                )}
+                              </div>
+                              <p className="text-white/40 text-[10px] text-center mt-2">Trykk for å gå tilbake</p>
+                            </div>
+                          )}
                         </div>
-                      ) : null
-                    ))}
+                      )
+                    })}
                   </div>
                 </motion.div>
               )}
