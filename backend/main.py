@@ -7,7 +7,8 @@ import json
 import base64
 import tempfile
 from pathlib import Path
-from fastapi import FastAPI, File, Form, UploadFile, HTTPException
+from datetime import datetime
+from fastapi import FastAPI, File, Form, UploadFile, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import cv2
@@ -416,6 +417,35 @@ async def analyze_swing(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analyse feilet: {str(e)}")
+
+
+ANNOTATIONS_FILE = Path("expert_annotations.json")
+
+
+@app.post("/expert/submit")
+async def expert_submit(request: Request):
+    """Ta imot ekspert-annotasjon og lagre til fil"""
+    try:
+        data = await request.json()
+        if ANNOTATIONS_FILE.exists():
+            annotations = json.loads(ANNOTATIONS_FILE.read_text(encoding="utf-8"))
+        else:
+            annotations = []
+        data["id"] = len(annotations) + 1
+        data["timestamp"] = datetime.now().isoformat()
+        annotations.append(data)
+        ANNOTATIONS_FILE.write_text(json.dumps(annotations, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"success": True, "count": len(annotations)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Kunne ikke lagre: {str(e)}")
+
+
+@app.get("/expert/annotations")
+async def expert_annotations():
+    """Hent alle ekspert-annotasjoner"""
+    if not ANNOTATIONS_FILE.exists():
+        return []
+    return json.loads(ANNOTATIONS_FILE.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
