@@ -532,11 +532,12 @@ function PhaseVideoCard({
       log(`${phase}: seeking to ${(newIdx/fps).toFixed(1)}s`)
       v.addEventListener('seeked', capture, { once: true })
     }
-    if (v.readyState >= 1) doSeek()
-    else {
-      log(`${phase}: loading first…`)
-      v.load()
+    if (v.readyState >= 1) {
+      doSeek()
+    } else {
+      log(`${phase}: venter på load (readyState=${v.readyState})…`)
       v.addEventListener('loadedmetadata', doSeek, { once: true })
+      if (v.readyState === 0) v.load()  // start kun én gang
     }
   }
 
@@ -598,10 +599,23 @@ function FrameConfirmStep({
   const [dbg, setDbg] = React.useState<string[]>([])
   const log = (msg: string) => setDbg(prev => [`${new Date().toLocaleTimeString()}: ${msg}`, ...prev].slice(0, 12))
 
+  // iOS Safari ignorerer preload på display:none — last én gang ved mount
+  React.useEffect(() => {
+    const load = (ref: React.RefObject<HTMLVideoElement>) => {
+      const v = ref.current
+      if (v && v.readyState === 0) { v.load(); }
+    }
+    load(primaryVideoRef)
+    load(secondaryVideoRef)
+  }, [])
+
   return (
     <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
-      {primaryUrl   && <video ref={primaryVideoRef}   src={primaryUrl}   muted playsInline preload="auto" className="hidden" />}
-      {secondaryUrl && <video ref={secondaryVideoRef} src={secondaryUrl} muted playsInline preload="auto" className="hidden" />}
+      {/* opacity:0 + fixed i stedet for display:none — iOS laster ikke skjulte videoer */}
+      {primaryUrl   && <video ref={primaryVideoRef}   src={primaryUrl}   muted playsInline preload="auto"
+        style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }} />}
+      {secondaryUrl && <video ref={secondaryVideoRef} src={secondaryUrl} muted playsInline preload="auto"
+        style={{ position: 'fixed', width: 1, height: 1, opacity: 0, pointerEvents: 'none', top: 0, left: 0 }} />}
 
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#1d1d1f' }}>Bekreft nøkkelbilder</h2>
