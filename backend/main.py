@@ -244,7 +244,7 @@ def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level
     if ball_flight and ball_flight.strip() and ball_flight.strip() != "vet_ikke":
         issues = [x.strip() for x in ball_flight.split(",") if x.strip() and x.strip() != "vet_ikke"]
         if issues:
-            labels = {"tykk": "tykke slag (klubben treffer bakken før ballen)", "tynn": "tynne slag (klubben treffer toppen av ballen)", "høyre": "slag som går til høyre (push/slice)", "venstre": "slag som går til venstre (hook/pull)"}
+            labels = {"tykk": "duff (klubben treffer bakken før ballen)", "tynn": "tynt balltreff (klubben skraper toppen av ballen)", "høyre": "høyreskru (ballen sveier til høyre, push/slice)", "venstre": "venstreskru (ballen sveier til venstre, hook/pull)"}
             described = [labels.get(i, i) for i in issues]
             ball_flight_text = f"\nSpilleren opplever spesielt disse problemene: {', '.join(described)}. Adresser disse konkret i analysen."
 

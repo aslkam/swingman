@@ -47,11 +47,11 @@ const SKILL_LEVELS = [
 ]
 
 const BALL_FLIGHT_OPTIONS = [
-  { key: 'tykk',     label: 'Tykk',      emoji: '⛏️', desc: 'Treffer bakken før ballen' },
-  { key: 'tynn',     label: 'Tynn',      emoji: '🪶', desc: 'Skraper toppen av ballen' },
-  { key: 'høyre',    label: 'Høyre',     emoji: '↗️', desc: 'Ballen sveier til høyre' },
-  { key: 'venstre',  label: 'Venstre',   emoji: '↖️', desc: 'Ballen sveier til venstre' },
-  { key: 'vet_ikke', label: 'Vet ikke',  emoji: '🤷', desc: '' },
+  { key: 'tykk',     label: 'Duff',          emoji: '⛏️', desc: 'Treffer bakken før ballen' },
+  { key: 'tynn',     label: 'Tynt balltreff', emoji: '🪶', desc: 'Skraper toppen av ballen' },
+  { key: 'høyre',    label: 'Høyreskru',     emoji: '↗️', desc: 'Ballen sveier til høyre' },
+  { key: 'venstre',  label: 'Venstreskru',   emoji: '↖️', desc: 'Ballen sveier til venstre' },
+  { key: 'vet_ikke', label: 'Vet ikke',      emoji: '🤷', desc: '' },
 ]
 
 const GOLF_TIPS = [
@@ -854,7 +854,7 @@ export default function Home() {
               {/* Ball flight selector */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between px-0.5">
-                  <p className="text-sm font-semibold text-black/55">Hva sliter du med?</p>
+                  <p className="text-sm font-semibold text-black/55">Hva sliter du med i golfsvingen?</p>
                   <span className="text-xs text-black/30">Valgfritt</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
