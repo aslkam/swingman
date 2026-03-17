@@ -444,6 +444,7 @@ export default function Home() {
   const [skillLevel, setSkillLevel]     = useState<SkillLevel>('middels')
   const [history, setHistory]           = useState<HistoryEntry[]>([])
   const [isDemo, setIsDemo]             = useState(false)
+  const [showFull, setShowFull]         = useState(false)
   const [copied, setCopied]             = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [tipIndex, setTipIndex]         = useState(0)
@@ -574,7 +575,7 @@ export default function Home() {
     if (progressTimer.current) clearTimeout(progressTimer.current)
     if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     setVideoFile(null); setPreviewUrl(null); setThumbnail(null)
-    setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false)
+    setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false)
   }
 
   const handleShare = async () => {
@@ -920,228 +921,184 @@ export default function Home() {
           {stage === 'done' && results && (
             <motion.div key="results" variants={stagger} initial="initial" animate="animate" className="pt-5 space-y-5">
 
-              {/* Score card */}
-              <motion.div variants={item} className="rounded-3xl overflow-hidden"
-                style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 4px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
-                <div className="px-6 pt-7 pb-5">
-                  <p className="text-xs font-bold text-emerald-600/70 uppercase tracking-widest mb-5 text-center">Din svingscore</p>
-                  <div className="flex justify-center">
-                    <ScoreRing
-                      score={score}
-                      showInfo={scoreInfoOpen}
-                      onToggleInfo={() => setScoreInfoOpen(v => !v)}
-                    />
-                  </div>
-                  <div className="mt-5 text-center">
-                    <p className="text-gray-900 font-bold text-2xl tracking-tight mb-2">
-                      {score >= 80 ? 'Utmerket teknikk 🏌️' : score >= 65 ? 'Godt grunnlag 👍' : score >= 50 ? 'Under utvikling 📈' : 'Begynner 🌱'}
-                    </p>
-                    <p className="text-black/50 text-base leading-relaxed max-w-xs mx-auto">{results.summary}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 divide-x divide-black/[0.06]" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                  {[
-                    { label: 'Styrker',      value: results.strengths?.length ?? 0, color: 'text-emerald-600' },
-                    { label: 'Forbedringer', value: improvements.length,            color: 'text-amber-500' },
-                    { label: 'Øvelse',       value: results.priority_drill ? '1' : '0', color: 'text-blue-600' },
-                  ].map(s => (
-                    <div key={s.label} className="py-4 flex flex-col items-center gap-0.5">
-                      <span className={`text-2xl font-bold ${s.color}`}>{s.value}</span>
-                      <span className="text-black/35 text-sm font-medium">{s.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-
               {/* ── Video replay ── */}
               {previewUrl && (
-                <motion.div variants={item} className="space-y-3">
+                <motion.div variants={item} className="space-y-2">
                   <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Din sving</p>
                   <div className="rounded-3xl overflow-hidden"
                     style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
-                    <video
-                      src={previewUrl}
-                      className="w-full max-h-72 object-cover bg-black"
-                      controls playsInline
-                      style={{ display: 'block' }}
-                    />
+                    <video src={previewUrl} className="w-full max-h-72 object-cover bg-black"
+                      controls playsInline style={{ display: 'block' }} />
                   </div>
-                  <p className="text-xs text-black/30 text-center">
-                    Spill av svingen din og sammenlign med nøkkelbildene nedenfor
-                  </p>
                 </motion.div>
               )}
 
-              {/* Keyframes */}
+              {/* ── Keyframes ── */}
               {results.keyframes && Object.keys(results.keyframes).length > 0 && (
-                <motion.div variants={item} className="space-y-3">
-                  <div className="flex items-center justify-between px-0.5">
-                    <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Nøkkelbilder</p>
-                    {improvements.length > 0 && (
-                      <p className="text-xs text-rose-500/70 flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-rose-500 inline-block"/> forbedringsområde
-                      </p>
-                    )}
-                  </div>
+                <motion.div variants={item} className="space-y-2">
+                  <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Faser</p>
                   <div className="grid grid-cols-2 gap-2.5">
-                    {(['address','backswing_top','impact','follow_through'] as const).map(phase => {
-                      const phaseIssues = improvements.filter((i: any) => i.phase === phase)
-                      return results.keyframes[phase] ? (
-                        <motion.div key={phase} variants={item}>
-                          <div className="relative rounded-2xl overflow-hidden group"
-                            style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
-                            <img src={`data:image/jpeg;base64,${results.keyframes[phase]}`} alt={PHASE_LABELS[phase]}
-                              className="w-full aspect-[3/4] object-cover object-top group-hover:scale-105 transition-transform duration-700" />
-                            <div className="absolute inset-0"
-                              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 55%)' }} />
-                            <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between">
-                              <p className="text-white text-sm font-semibold">{PHASE_LABELS[phase]}</p>
-                              {phaseIssues.length > 0
-                                ? <span className="w-5 h-5 rounded-full bg-rose-500 flex items-center justify-center"
-                                    style={{ boxShadow: '0 2px 8px rgba(239,68,68,0.5)' }}>
-                                    <span className="text-white text-[10px] font-bold">{phaseIssues.length}</span>
-                                  </span>
-                                : <span className="text-emerald-300 text-sm font-bold">✓</span>
-                              }
-                            </div>
-                          </div>
-                          {phaseIssues.length > 0 && (
-                            <p className="text-rose-500/70 text-xs mt-1.5 leading-tight line-clamp-1 px-0.5">
-                              {phaseIssues[0].area}{phaseIssues.length > 1 ? ` +${phaseIssues.length - 1}` : ''}
-                            </p>
-                          )}
-                        </motion.div>
-                      ) : null
-                    })}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ── Målinger ── */}
-              {results.measurements && (
-                <motion.div variants={item} className="space-y-3">
-                  <div className="flex items-center justify-between px-0.5">
-                    <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Kroppsmålinger</p>
-                    <span className="text-xs text-black/25">vs. referanseverdier</span>
-                  </div>
-                  <div className="rounded-3xl px-5"
-                    style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)' }}>
-                    {KEY_ANGLES.map(({ phase, key, label, sub, min, max }) => {
-                      const val = results.measurements?.[phase]?.[key]
-                      return typeof val === 'number' ? (
-                        <AngleBar key={`${phase}-${key}`} value={val} min={min} max={max} label={label} sub={sub} />
-                      ) : null
-                    })}
-                  </div>
-                  <p className="text-xs text-black/25 text-center px-2">
-                    Grønn sone = ideell referansevinkel for amatørgolfere
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Styrker */}
-              {results.strengths && results.strengths.length > 0 && (
-                <motion.div variants={item} className="space-y-3">
-                  <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Styrker</p>
-                  <div className="rounded-3xl overflow-hidden"
-                    style={{ ...glass, border: '1px solid rgba(5,150,105,0.2)' }}>
-                    {results.strengths.map((s: string, i: number) => (
-                      <div key={i} className={`flex gap-4 px-5 py-4 ${i > 0 ? 'border-t border-black/[0.05]' : ''}`}>
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                          style={{ background: 'rgba(5,150,105,0.1)', border: '1px solid rgba(5,150,105,0.25)' }}>
-                          <CheckCircle2 size={15} className="text-emerald-600" />
+                    {(['address','backswing_top','impact','follow_through'] as const).map(phase => (
+                      results.keyframes[phase] ? (
+                        <div key={phase} className="relative rounded-2xl overflow-hidden group"
+                          style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                          <img src={`data:image/jpeg;base64,${results.keyframes[phase]}`} alt={PHASE_LABELS[phase]}
+                            className="w-full aspect-[3/4] object-cover object-top group-hover:scale-105 transition-transform duration-700" />
+                          <div className="absolute inset-0"
+                            style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)' }} />
+                          <p className="absolute bottom-2.5 left-2.5 text-white text-sm font-semibold">{PHASE_LABELS[phase]}</p>
                         </div>
-                        <p className="text-black/70 text-base leading-relaxed">{s}</p>
-                      </div>
+                      ) : null
                     ))}
                   </div>
                 </motion.div>
               )}
 
-              {/* Forbedringer */}
-              {improvements.length > 0 && (
-                <motion.div variants={item} className="space-y-3">
-                  <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Forbedringer</p>
-                  <div className="space-y-3">
-                    {improvements.map((imp: any, i: number) => {
-                      const cfg = IMPACT_CONFIG[imp.impact as keyof typeof IMPACT_CONFIG] ?? IMPACT_CONFIG.medium
-                      return (
-                        <motion.div key={i} variants={item} className="rounded-3xl overflow-hidden"
-                          style={{ ...glass, border: '1px solid rgba(0,0,0,0.07)' }}>
-                          <div className="flex items-center gap-3.5 px-5 pt-5 pb-4">
-                            <div className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
-                              style={{ background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.2)' }}>
-                              <span className="text-amber-600 text-base font-bold">{i + 1}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-gray-900 font-semibold text-base leading-tight">{imp.area}</p>
-                              {imp.phase && <p className="text-black/35 text-sm mt-0.5">📍 {PHASE_LABELS[imp.phase] ?? imp.phase}</p>}
-                            </div>
-                            <span className={`text-xs font-semibold border rounded-full px-3 py-1 shrink-0 ${cfg.pill}`}>{cfg.label}</span>
-                          </div>
-                          <div className="border-t border-black/[0.05]">
-                            <div className="mx-4 mt-4 mb-2 rounded-2xl px-4 py-3"
-                              style={{ background: '#fff5f5', border: '1px solid rgba(239,68,68,0.15)' }}>
-                              <p className="text-xs font-bold text-rose-500/70 uppercase tracking-wider mb-1.5">Utfordring</p>
-                              <p className="text-rose-700/80 text-base leading-relaxed">{imp.issue}</p>
-                            </div>
-                            <div className="mx-4 mt-2 mb-4 rounded-2xl px-4 py-3"
-                              style={{ background: '#f0fdf4', border: '1px solid rgba(5,150,105,0.18)' }}>
-                              <p className="text-xs font-bold text-emerald-600/70 uppercase tracking-wider mb-1.5">Instruktørens råd</p>
-                              <p className="text-emerald-800/85 text-base leading-relaxed">{imp.tip}</p>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )
-                    })}
+              {/* ── Prioritert øvelse (enkel) ── */}
+              {results.priority_drill && (
+                <motion.div variants={item}>
+                  <div className="rounded-3xl px-5 py-5"
+                    style={{ background: 'rgba(240,253,244,0.9)', border: '1.5px solid rgba(5,150,105,0.2)', backdropFilter: 'blur(40px)', boxShadow: '0 2px 32px rgba(5,150,105,0.08)' }}>
+                    <p className="text-xs font-bold text-emerald-600/60 uppercase tracking-widest mb-2">Gjør dette nå</p>
+                    <p className="text-gray-900 font-bold text-xl leading-snug mb-2">{results.priority_drill.name}</p>
+                    <p className="text-black/60 text-base leading-relaxed">{results.priority_drill.description}</p>
                   </div>
                 </motion.div>
               )}
 
-              {/* Prioritert øvelse */}
-              {results.priority_drill && (
-                <motion.div variants={item} className="space-y-3">
-                  <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Prioritert øvelse</p>
+              {/* ── Toggle: Se full analyse ── */}
+              <motion.div variants={item}>
+                <button
+                  onClick={() => setShowFull(v => !v)}
+                  className="w-full py-3.5 rounded-2xl font-semibold text-base transition-all flex items-center justify-center gap-2"
+                  style={{
+                    background: showFull ? 'rgba(0,0,0,0.05)' : 'rgba(255,255,255,0.8)',
+                    border: '1px solid rgba(0,0,0,0.1)',
+                    color: 'rgba(0,0,0,0.55)',
+                    backdropFilter: 'blur(20px)',
+                  }}
+                >
+                  {showFull ? (
+                    <><X size={15} /> Skjul detaljer</>
+                  ) : (
+                    <><TrendingUp size={15} /> Se full analyse</>
+                  )}
+                </button>
+              </motion.div>
 
-                  <div className="rounded-3xl"
-                    style={{ background: 'rgba(240,253,244,0.9)', border: '1.5px solid rgba(5,150,105,0.2)', backdropFilter: 'blur(40px)', boxShadow: '0 2px 32px rgba(5,150,105,0.08)' }}>
-
-                    {/* Navn */}
-                    <div className="px-5 pt-5 pb-3">
-                      <p className="text-gray-900 font-bold text-xl leading-snug">{results.priority_drill.name}</p>
-                      {results.priority_drill.duration && (
-                        <span className="inline-flex items-center gap-1.5 mt-2 rounded-full px-3 py-1 text-sm font-semibold"
-                          style={{ background: 'rgba(5,150,105,0.12)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }}>
-                          ⏱ {results.priority_drill.duration}
-                        </span>
-                      )}
+              {/* ── Full analyse (skjult som standard) ── */}
+              <AnimatePresence>
+                {showFull && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 6 }}
+                    transition={{ duration: 0.35, ease }}
+                    className="space-y-5"
+                  >
+                    {/* Score */}
+                    <div className="rounded-3xl overflow-hidden"
+                      style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 4px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
+                      <div className="px-6 pt-7 pb-5">
+                        <div className="flex justify-center">
+                          <ScoreRing score={score} showInfo={scoreInfoOpen} onToggleInfo={() => setScoreInfoOpen(v => !v)} />
+                        </div>
+                        <p className="text-black/50 text-base leading-relaxed text-center mt-4 max-w-xs mx-auto">{results.summary}</p>
+                      </div>
+                      <div className="grid grid-cols-3 divide-x divide-black/[0.06]" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                        {[
+                          { label: 'Styrker',      value: results.strengths?.length ?? 0, color: 'text-emerald-600' },
+                          { label: 'Forbedringer', value: improvements.length,            color: 'text-amber-500' },
+                          { label: 'Øvelse',       value: results.priority_drill ? '1' : '0', color: 'text-blue-600' },
+                        ].map(s => (
+                          <div key={s.label} className="py-4 flex flex-col items-center gap-0.5">
+                            <span className={`text-2xl font-bold ${s.color}`}>{s.value}</span>
+                            <span className="text-black/35 text-sm font-medium">{s.label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    {/* Beskrivelse */}
-                    <div className="px-5 py-4" style={{ borderTop: '1px solid rgba(5,150,105,0.12)' }}>
-                      <p className="text-xs font-bold text-black/30 uppercase tracking-wider mb-2">Slik gjør du det</p>
-                      <p className="text-black/65 text-base leading-relaxed">{results.priority_drill.description}</p>
-                    </div>
-
-                    {/* Hvorfor */}
-                    {improvements[0] && (
-                      <div className="mx-4 mb-4 rounded-2xl px-4 py-3"
-                        style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.07)' }}>
-                        <p className="text-black/40 text-sm leading-relaxed">
-                          🎯 Målretter <span className="text-amber-600 font-semibold">{improvements[0].area.toLowerCase()}</span> — forbedringsområdet med størst effekt.
-                        </p>
+                    {/* Styrker */}
+                    {results.strengths && results.strengths.length > 0 && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Styrker</p>
+                        <div className="rounded-3xl overflow-hidden"
+                          style={{ ...glass, border: '1px solid rgba(5,150,105,0.2)' }}>
+                          {results.strengths.map((s: string, i: number) => (
+                            <div key={i} className={`flex gap-3.5 px-5 py-4 ${i > 0 ? 'border-t border-black/[0.05]' : ''}`}>
+                              <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
+                              <p className="text-black/70 text-base leading-relaxed">{s}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
-                  </div>
 
-                  <div className="rounded-2xl px-4 py-3.5 text-center"
-                    style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.07)', backdropFilter: 'blur(20px)' }}>
-                    <p className="text-black/40 text-sm leading-relaxed">
-                      🔁 Gjenta <strong className="text-black/60">3–5 ganger per treningsøkt</strong> for å bygge muskelminne.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
+                    {/* Forbedringer */}
+                    {improvements.length > 0 && (
+                      <div className="space-y-3">
+                        <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Forbedringer</p>
+                        {improvements.map((imp: any, i: number) => {
+                          const cfg = IMPACT_CONFIG[imp.impact as keyof typeof IMPACT_CONFIG] ?? IMPACT_CONFIG.medium
+                          return (
+                            <div key={i} className="rounded-3xl overflow-hidden"
+                              style={{ ...glass, border: '1px solid rgba(0,0,0,0.07)' }}>
+                              <div className="flex items-center gap-3.5 px-5 pt-4 pb-3">
+                                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                  style={{ background: 'rgba(217,119,6,0.1)', border: '1px solid rgba(217,119,6,0.2)' }}>
+                                  <span className="text-amber-600 text-sm font-bold">{i + 1}</span>
+                                </div>
+                                <p className="text-gray-900 font-semibold text-base flex-1">{imp.area}</p>
+                                <span className={`text-xs font-semibold border rounded-full px-2.5 py-1 shrink-0 ${cfg.pill}`}>{cfg.label}</span>
+                              </div>
+                              <div className="px-5 pb-4 space-y-2">
+                                <p className="text-black/55 text-sm leading-relaxed">{imp.issue}</p>
+                                <div className="rounded-2xl px-4 py-3"
+                                  style={{ background: '#f0fdf4', border: '1px solid rgba(5,150,105,0.18)' }}>
+                                  <p className="text-emerald-800/85 text-sm leading-relaxed">{imp.tip}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+
+                    {/* Vinkelmålinger */}
+                    {results.measurements && (
+                      <div className="space-y-2">
+                        <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Vinkelmålinger</p>
+                        <div className="rounded-3xl px-5" style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)' }}>
+                          {KEY_ANGLES.map(({ phase, key, label, sub, min, max }) => {
+                            const val = results.measurements?.[phase]?.[key]
+                            return typeof val === 'number' ? (
+                              <AngleBar key={`${phase}-${key}`} value={val} min={min} max={max} label={label} sub={sub} />
+                            ) : null
+                          })}
+                        </div>
+                        <p className="text-xs text-black/25 text-center px-2">Grønn sone = ideell vinkel for amatørgolfere</p>
+                      </div>
+                    )}
+
+                    {/* Øvelsedetaljer */}
+                    {results.priority_drill && (
+                      <div className="rounded-2xl px-4 py-3.5"
+                        style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.07)', backdropFilter: 'blur(20px)' }}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-black/50 text-sm font-medium">Øvelsevarighet</p>
+                          <span className="text-sm font-semibold text-emerald-700">{results.priority_drill.duration}</span>
+                        </div>
+                        {improvements[0] && (
+                          <p className="text-black/35 text-sm mt-2">
+                            Målretter <span className="text-amber-600 font-semibold">{improvements[0].area.toLowerCase()}</span> — forbedringsområdet med størst effekt.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
             </motion.div>
           )}
