@@ -21,6 +21,7 @@ interface Form {
   improvements: Improvement[]
   priority_name: string
   priority_description: string
+  avoid_focus: string[]
   notes: string
 }
 
@@ -34,6 +35,7 @@ const emptyForm = (): Form => ({
   ],
   priority_name: '',
   priority_description: '',
+  avoid_focus: [''],
   notes: '',
 })
 
@@ -131,6 +133,7 @@ export default function EkspertPage() {
           name:                form.priority_name.trim(),
           description:         form.priority_description.trim(),
         },
+        avoid_focus:           form.avoid_focus.filter(s => s.trim()),
         notes:                 form.notes.trim(),
         video_filename:        videoFile.name,
         submitted_at:          new Date().toISOString(),
@@ -474,6 +477,51 @@ export default function EkspertPage() {
           />
         </div>
 
+        {/* Ikke fokus på */}
+        <div className="rounded-3xl p-5 space-y-3"
+          style={{ background: 'rgba(239,68,68,0.04)', border: '1.5px solid rgba(239,68,68,0.15)', backdropFilter: 'blur(40px)' }}>
+          <div>
+            <p className="text-sm font-bold text-black/65">Overstyr AI-en — ikke fokus på</p>
+            <p className="text-xs text-black/45 mt-1 leading-relaxed">
+              AI-en har en tendens til å fokusere på ting som i praksis ikke er viktig for de fleste amatørgolfere.
+              Her kan du fortelle systemet hva det <strong className="text-black/60">ikke</strong> skal vektlegge —
+              basert på din faglige erfaring.
+            </p>
+            <p className="text-xs text-black/35 mt-2 leading-relaxed italic">
+              Eks: «Ikke fokus på hodestilling i backswing — dette er overanalysert og forvirrer nybegynnere.»
+              Eks: «Ikke bruk begrepet 'casting' uten å forklare det — ukjent for de fleste.»
+            </p>
+          </div>
+          {form.avoid_focus.map((item, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <X size={12} className="text-rose-500" />
+              </div>
+              <input
+                value={item}
+                onChange={e => setForm(f => {
+                  const a = [...f.avoid_focus]; a[i] = e.target.value; return { ...f, avoid_focus: a }
+                })}
+                placeholder={i === 0 ? 'Eks: «Ikke fokus på hodestilling — dette forvirrer mer enn det hjelper»' : 'Eks: «Unngå teknisk jargon som \'lag\' og \'X-factor\'»'}
+                className="flex-1 px-3 py-2.5 rounded-xl text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(239,68,68,0.12)' }}
+              />
+              {i >= 1 && (
+                <button onClick={() => setForm(f => ({ ...f, avoid_focus: f.avoid_focus.filter((_, j) => j !== i) }))}>
+                  <X size={15} className="text-black/30" />
+                </button>
+              )}
+            </div>
+          ))}
+          {form.avoid_focus.length < 5 && (
+            <button onClick={() => setForm(f => ({ ...f, avoid_focus: [...f.avoid_focus, ''] }))}
+              className="flex items-center gap-2 text-sm text-rose-500/60 hover:text-rose-500 transition-colors">
+              <Plus size={14} /> Legg til punkt
+            </button>
+          )}
+        </div>
+
         {/* Notater (valgfritt) */}
         <div className="rounded-3xl p-5 space-y-3" style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)' }}>
           <div>
@@ -508,6 +556,64 @@ export default function EkspertPage() {
             : <><ChevronRight size={18} /> Send inn analyse</>
           }
         </button>
+
+        {/* ── Forklaring til eksperten ── */}
+        <div className="mt-4 space-y-4 pb-8">
+          <div className="h-px" style={{ background: 'rgba(0,0,0,0.07)' }} />
+          <p className="text-xs font-bold text-black/30 uppercase tracking-widest px-0.5">Hvorfor dette arbeidet betyr noe</p>
+
+          <div className="rounded-3xl p-5 space-y-4" style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)' }}>
+            <div className="space-y-3">
+              <p className="text-sm font-bold text-black/70">Slik brukes analysene dine akkurat nå</p>
+              <p className="text-sm text-black/55 leading-relaxed">
+                Hver analyse du sender inn brukes som et <em>referanseeksempel</em> når AI-en vurderer en ny sving.
+                Før AI-en svarer brukeren, ser den på dine eksempler og justerer seg etter din tone, ditt presisjonsnivå og din faglige prioritering.
+              </p>
+              <p className="text-sm text-black/55 leading-relaxed">
+                Dette kalles <strong className="text-black/70">few-shot prompting</strong> — AI-en «lærer» ikke permanent, men den bruker eksemplene som fasit for hva en god analyse ser ut som.
+                Uten disse eksemplene er AI-en generisk. Med dem blir den spesifikk, faglig korrekt og tilpasset golfspillerens virkelighet.
+              </p>
+            </div>
+
+            <div className="h-px" style={{ background: 'rgba(0,0,0,0.06)' }} />
+
+            <div className="space-y-3">
+              <p className="text-sm font-bold text-black/70">Fase 2: Databaseløsning (kommer)</p>
+              <p className="text-sm text-black/55 leading-relaxed">
+                I dag brukes et fast sett med de beste eksemplene dine. Det fungerer godt, men har én begrensning: AI-en ser alltid de samme eksemplene — uavhengig av hvem brukeren er og hva slags sving de har.
+              </p>
+              <p className="text-sm text-black/55 leading-relaxed">
+                Neste steg er en database som gjør det mulig å <strong className="text-black/70">matche eksempler mot den faktiske brukeren</strong>. Analyserer en nybegynner med tynne slag? AI-en henter automatisk ditt eksempel som best matcher det. Dette gir dramatisk bedre presisjon — og det er derfor vi trenger bred dekning på tvers av nivåer og feiltyper.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                {[
+                  { title: 'I dag', color: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.2)', items: ['Faste eksempler i prompten', '2–4 eksempler vises alltid', 'Fungerer godt som start', 'Lett å oppdatere manuelt'] },
+                  { title: 'Med database', color: 'rgba(5,150,105,0.07)', border: 'rgba(5,150,105,0.2)', items: ['Dynamisk matching mot bruker', 'Alltid mest relevante eksempel', 'Skalerer med antall bidrag', 'Ekspertene ser effekt direkte'] },
+                ].map(col => (
+                  <div key={col.title} className="rounded-2xl p-3 space-y-2"
+                    style={{ background: col.color, border: `1px solid ${col.border}` }}>
+                    <p className="text-xs font-bold text-black/60">{col.title}</p>
+                    {col.items.map(item => (
+                      <p key={item} className="text-xs text-black/50 leading-snug">· {item}</p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="h-px" style={{ background: 'rgba(0,0,0,0.06)' }} />
+
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-black/70">Du er kvalitetssikringen</p>
+              <p className="text-sm text-black/55 leading-relaxed">
+                AI-en er god på å se mønstre og formulere seg. Men den vet ikke hva som faktisk virker på banen — det vet du.
+                Uten ekspertinput vil AI-en overanalysere irrelevante detaljer, bruke feil terminologi, og prioritere feil.
+                Med dine eksempler og dine «ikke fokus på»-punkter sikrer vi at råd til brukerne faktisk hjelper dem å spille bedre golf.
+              </p>
+            </div>
+          </div>
+        </div>
 
       </div>
     </div>
