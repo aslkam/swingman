@@ -142,6 +142,70 @@ def apply_rotation(frame: np.ndarray, rotation: int) -> np.ndarray:
     return frame
 
 
+def detect_phase_indices(video_path: str, rotation: int, total_frames: int) -> dict[str, int]:
+    """
+    Første passet: beregner frame-til-frame bevegelse og finner de 4 sving-fasene.
+    - address:        første stabile frame (lav bevegelse, første 15%)
+    - backswing_top:  roligste punkt mellom address og impact (pausen øverst)
+    - impact:         frame med høyest bevegelse i midten av videoen
+    - follow_through: 80% av veien mellom impact og slutten
+    """
+    cap = cv2.VideoCapture(video_path)
+    motion_scores = []
+    prev_gray = None
+    fc = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame = apply_rotation(frame, rotation)
+        # Nedskalert gråtone for rask bevegelsesberegning
+        small = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (160, 90))
+        if prev_gray is not None:
+            motion_scores.append(float(cv2.absdiff(small, prev_gray).mean()))
+        else:
+            motion_scores.append(0.0)
+        prev_gray = small
+        fc += 1
+
+    cap.release()
+    n = len(motion_scores)
+    if n < 8:
+        # For korte videoer: fall tilbake til lik fordeling
+        idxs = np.linspace(0, n - 1, 4, dtype=int)
+        return {'address': int(idxs[0]), 'backswing_top': int(idxs[1]),
+                'impact': int(idxs[2]), 'follow_through': int(idxs[3])}
+
+    scores = np.array(motion_scores)
+
+    # Impact: høyest bevegelse i 20–80% av videoen
+    lo, hi = int(n * 0.20), int(n * 0.80)
+    impact_idx = lo + int(np.argmax(scores[lo:hi]))
+
+    # Address: roligste frame i første 15%
+    addr_end = max(2, int(n * 0.15))
+    address_idx = int(np.argmin(scores[:addr_end]))
+
+    # Backswing top: roligste punkt mellom address og impact (pausen i toppen)
+    bt_lo = address_idx + 1
+    bt_hi = impact_idx
+    if bt_hi > bt_lo + 1:
+        backswing_idx = bt_lo + int(np.argmin(scores[bt_lo:bt_hi]))
+    else:
+        backswing_idx = bt_lo
+
+    # Follow-through: 75% av veien etter impact mot slutten
+    follow_idx = min(n - 1, impact_idx + int((n - 1 - impact_idx) * 0.75))
+
+    return {
+        'address':        address_idx,
+        'backswing_top':  backswing_idx,
+        'impact':         impact_idx,
+        'follow_through': follow_idx,
+    }
+
+
 def analyze_video(video_path: str) -> tuple[dict, dict]:
     """Analyze golf swing video with MediaPipe. Returns (measurements, keyframe_images)."""
     cap = cv2.VideoCapture(video_path)
@@ -151,12 +215,18 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
 
     rotation = get_video_rotation(cap)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    measurements = {}
-    key_frame_indices = np.linspace(0, total_frames - 1, 4, dtype=int)
+    cap.release()
 
+    # Første pass: finn de riktige frame-indeksene basert på bevegelse
+    phase_indices = detect_phase_indices(video_path, rotation, total_frames)
+    target_indices = set(phase_indices.values())
+
+    # Andre pass: pose-analyse + hent nøkkelframes
+    cap = cv2.VideoCapture(video_path)
+    measurements = {}
     frame_count = 0
     frame_measurements = []
-    captured_frames = {}  # frame_index -> bgr image
+    captured_frames = {}
 
     while True:
         ret, frame = cap.read()
@@ -165,19 +235,16 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
 
         frame = apply_rotation(frame, rotation)
 
-        # Capture raw frame at keyframe positions
-        if frame_count in key_frame_indices:
+        if frame_count in target_indices:
             captured_frames[frame_count] = frame.copy()
 
         if frame_count % FRAME_SKIP == 0:
-            # Convert to RGB
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             results = pose.process(rgb_frame)
 
             if results.pose_landmarks:
                 landmarks = results.pose_landmarks.landmark
 
-                # Extract key points
                 left_shoulder = [landmarks[11].x, landmarks[11].y, landmarks[11].z]
                 right_shoulder = [landmarks[12].x, landmarks[12].y, landmarks[12].z]
                 left_hip = [landmarks[23].x, landmarks[23].y, landmarks[23].z]
@@ -190,24 +257,19 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
                 right_ankle = [landmarks[28].x, landmarks[28].y, landmarks[28].z]
                 nose = [landmarks[0].x, landmarks[0].y, landmarks[0].z]
 
-                # Calculate angles
                 shoulder_rotation = calculate_angle(
                     [left_shoulder[0], 0, left_shoulder[2]],
                     [nose[0], 0, nose[2]],
                     [right_shoulder[0], 0, right_shoulder[2]]
                 )
-
                 hip_rotation = calculate_angle(
                     [left_hip[0], 0, left_hip[2]],
                     [nose[0], 0, nose[2]],
                     [right_hip[0], 0, right_hip[2]]
                 )
-
                 left_arm_angle = calculate_angle(left_shoulder, left_elbow, left_wrist)
                 left_knee_flex = calculate_angle(left_hip, left_knee, left_ankle)
                 right_knee_flex = calculate_angle(right_hip, right_knee, right_ankle)
-
-                # Spine angle (simplified)
                 spine_angle = calculate_angle(
                     [left_shoulder[0], left_shoulder[1], 0],
                     [nose[0], nose[1], 0],
@@ -228,17 +290,19 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
 
     cap.release()
 
-    # Select key frames from measurements
+    # Knytt målinger til de detekterte fasene
     if frame_measurements:
-        measurements['address'] = frame_measurements[0]
-        measurements['backswing_top'] = frame_measurements[len(frame_measurements) // 3]
-        measurements['impact'] = frame_measurements[2 * len(frame_measurements) // 3]
-        measurements['follow_through'] = frame_measurements[-1]
+        def closest_measurement(target_frame: int):
+            return min(frame_measurements, key=lambda m: abs(m['frame'] - target_frame))
+
+        measurements['address']        = closest_measurement(phase_indices['address'])
+        measurements['backswing_top']  = closest_measurement(phase_indices['backswing_top'])
+        measurements['impact']         = closest_measurement(phase_indices['impact'])
+        measurements['follow_through'] = closest_measurement(phase_indices['follow_through'])
 
     # Bygg keyframe-bilder med skjelett-overlay
-    phase_names = ['address', 'backswing_top', 'impact', 'follow_through']
     keyframe_images = {}
-    for phase, idx in zip(phase_names, key_frame_indices):
+    for phase, idx in phase_indices.items():
         if idx in captured_frames:
             frame = captured_frames[idx].copy()
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
