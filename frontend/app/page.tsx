@@ -439,13 +439,88 @@ function SkillSlider({ value, onChange }: { value: SkillLevel; onChange: (v: Ski
   )
 }
 
+// ─── VideoDropZone ────────────────────────────────────────────────────────────
+
+function VideoDropZone({
+  label, badge, videoFile, thumbnail, isDragging,
+  inputRef, onDragOver, onDragLeave, onDrop, onClick, onFileChange, onSwap,
+}: {
+  label: string; badge?: string; videoFile: File | null; thumbnail: string | null
+  isDragging: boolean; inputRef: React.RefObject<HTMLInputElement>
+  onDragOver: () => void; onDragLeave: () => void
+  onDrop: (e: React.DragEvent) => void; onClick: () => void
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onSwap: () => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2 px-0.5">
+        <p className="text-sm font-semibold text-black/60">{label}</p>
+        {badge && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)' }}>{badge}</span>}
+      </div>
+      <div
+        onDragOver={(e) => { e.preventDefault(); onDragOver() }}
+        onDragLeave={onDragLeave}
+        onDrop={onDrop}
+        onClick={() => !videoFile && onClick()}
+        className="rounded-3xl border-2 transition-all duration-300 overflow-hidden cursor-pointer"
+        style={{
+          borderColor: isDragging ? '#34d399' : 'rgba(0,0,0,0.1)',
+          background: isDragging ? 'rgba(52,211,153,0.06)' : 'rgba(255,255,255,0.65)',
+          backdropFilter: 'blur(20px)',
+          boxShadow: isDragging ? '0 0 0 4px rgba(52,211,153,0.15)' : '0 2px 24px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
+        }}
+      >
+        <input ref={inputRef} type="file" accept="video/mp4,video/quicktime,video/*" onChange={onFileChange} className="hidden" />
+        {videoFile ? (
+          <div className="relative">
+            {thumbnail ? (
+              <img src={thumbnail} alt={label} className="w-full max-h-44 object-cover" />
+            ) : (
+              <div className="w-full h-32 flex items-center justify-center bg-emerald-50">
+                <Loader2 size={20} className="text-emerald-400 animate-spin" />
+              </div>
+            )}
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, transparent 50%)' }} />
+            <div className="absolute top-2.5 left-2.5 bg-black/40 backdrop-blur-sm rounded-full px-2.5 py-1 flex items-center gap-1.5 border border-white/20">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              <span className="text-white text-xs font-semibold">Klar</span>
+            </div>
+            <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+              <p className="text-white text-xs font-medium truncate max-w-[140px]">{videoFile.name}</p>
+              <button onClick={(e) => { e.stopPropagation(); onSwap() }}
+                className="text-xs text-white/80 rounded-full px-3 py-1 font-medium"
+                style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)' }}
+              >Bytt</button>
+            </div>
+          </div>
+        ) : (
+          <div className="py-8 flex flex-col items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+              style={{ background: 'rgba(5,150,105,0.08)', border: '1px solid rgba(5,150,105,0.15)' }}>
+              <Upload size={20} className="text-emerald-600" />
+            </div>
+            <p className="text-black/45 text-sm">Trykk eller dra video hit</p>
+            <p className="text-black/25 text-xs">MP4 · MOV · maks 50 MB</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [videoFile, setVideoFile]       = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl]     = useState<string | null>(null)
-  const [thumbnail, setThumbnail]       = useState<string | null>(null)
-  const [isDragging, setIsDragging]     = useState(false)
+  const [videoFile, setVideoFile]         = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl]       = useState<string | null>(null)
+  const [thumbnail, setThumbnail]         = useState<string | null>(null)
+  const [isDragging, setIsDragging]       = useState(false)
+  const [videoFront, setVideoFront]       = useState<File | null>(null)
+  const [previewFront, setPreviewFront]   = useState<string | null>(null)
+  const [thumbFront, setThumbFront]       = useState<string | null>(null)
+  const [isDraggingFront, setIsDraggingFront] = useState(false)
   const [stage, setStage]               = useState<Stage>('idle')
   const [results, setResults]           = useState<any>(null)
   const [error, setError]               = useState<string | null>(null)
@@ -461,7 +536,8 @@ export default function Home() {
   const [guideVisible, setGuideVisible] = useState(false)
   const [scoreInfoOpen, setScoreInfoOpen] = useState(false)
 
-  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const fileInputRef      = useRef<HTMLInputElement>(null)
+  const fileInputRefFront = useRef<HTMLInputElement>(null)
   const progressTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const elapsedTimer   = useRef<ReturnType<typeof setInterval> | null>(null)
   const tipTimer       = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -475,12 +551,13 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      if (previewUrl)   URL.revokeObjectURL(previewUrl)
+      if (previewFront) URL.revokeObjectURL(previewFront)
       if (progressTimer.current) clearTimeout(progressTimer.current)
       if (elapsedTimer.current)  clearInterval(elapsedTimer.current)
       if (tipTimer.current)      clearInterval(tipTimer.current)
     }
-  }, [previewUrl])
+  }, [previewUrl, previewFront])
 
   const isAnalyzing = ['uploading','analyzing','generating'].includes(stage)
   useEffect(() => {
@@ -530,8 +607,19 @@ export default function Home() {
     setThumbnail(thumb || null)
   }, [previewUrl])
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFile(f) }
-  const onDrop = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files?.[0]; if (f) pickFile(f) }
+  const pickFileFront = useCallback(async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) { setError('Videoen er for stor. Maks 50 MB.'); return }
+    if (previewFront) URL.revokeObjectURL(previewFront)
+    const url = URL.createObjectURL(file)
+    setVideoFront(file); setPreviewFront(url); setError(null)
+    const thumb = await captureThumbnail(file, url)
+    setThumbFront(thumb || null)
+  }, [previewFront])
+
+  const onFileChange      = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFile(f) }
+  const onFileChangeFront = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFileFront(f) }
+  const onDrop      = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false);      const f = e.dataTransfer.files?.[0]; if (f) pickFile(f) }
+  const onDropFront = (e: React.DragEvent) => { e.preventDefault(); setIsDraggingFront(false); const f = e.dataTransfer.files?.[0]; if (f) pickFileFront(f) }
 
   const handleDemo = () => {
     setError(null)
@@ -547,6 +635,7 @@ export default function Home() {
     try {
       const form = new FormData()
       form.append('file', videoFile)
+      if (videoFront) form.append('file_front', videoFront)
       form.append('skill_level', skillLevel)
       form.append('ball_flight', ballFlight.join(','))
       const res = await axios.post(`${BACKEND_URL}/analyze`, form, {
@@ -581,10 +670,12 @@ export default function Home() {
   }
 
   const handleReset = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    if (previewUrl)   URL.revokeObjectURL(previewUrl)
+    if (previewFront) URL.revokeObjectURL(previewFront)
     if (progressTimer.current) clearTimeout(progressTimer.current)
     if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     setVideoFile(null); setPreviewUrl(null); setThumbnail(null)
+    setVideoFront(null); setPreviewFront(null); setThumbFront(null)
     setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false); setBallFlight([])
   }
 
@@ -716,67 +807,39 @@ export default function Home() {
                 </div>
               </motion.button>
 
-              {/* Drop zone */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={onDrop}
-                onClick={() => !videoFile && fileInputRef.current?.click()}
-                className="rounded-3xl border-2 transition-all duration-300 overflow-hidden cursor-pointer"
-                style={{
-                  borderColor: isDragging ? '#34d399' : 'rgba(0,0,0,0.1)',
-                  background: isDragging ? 'rgba(52,211,153,0.06)' : 'rgba(255,255,255,0.65)',
-                  backdropFilter: 'blur(20px)',
-                  boxShadow: isDragging
-                    ? '0 0 0 4px rgba(52,211,153,0.15)'
-                    : '0 2px 24px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9)',
-                }}
-              >
-                <input ref={fileInputRef} type="file" accept="video/mp4,video/quicktime,video/*" onChange={onFileChange} className="hidden" />
+              {/* To videoer — hint-banner */}
+              <div className="flex items-center gap-2.5 rounded-2xl px-4 py-3"
+                style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)' }}>
+                <span className="text-base">📐</span>
+                <p className="text-sm text-emerald-800/75 leading-snug">
+                  <strong>To videoer gir best resultat.</strong> Side er påkrevd, forfra er valgfritt.
+                </p>
+              </div>
 
-                {videoFile ? (
-                  /* ── Video klar: vis thumbnail ── */
-                  <div className="relative">
-                    {thumbnail ? (
-                      <img src={thumbnail} alt="Video-forhåndsvisning"
-                        className="w-full max-h-64 object-cover" />
-                    ) : (
-                      <div className="w-full h-48 flex items-center justify-center bg-emerald-50">
-                        <Loader2 size={24} className="text-emerald-400 animate-spin" />
-                      </div>
-                    )}
-                    <div className="absolute inset-0"
-                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)' }} />
-                    {/* Spill-av-ikon indikator */}
-                    <div className="absolute top-3 left-3 bg-black/40 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 border border-white/20">
-                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span className="text-white text-xs font-semibold">Video klar</span>
-                    </div>
-                    <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-                      <div>
-                        <p className="text-white text-sm font-semibold truncate max-w-[200px]">{videoFile.name}</p>
-                        <p className="text-white/60 text-xs mt-0.5">{(videoFile.size/1024/1024).toFixed(1)} MB</p>
-                      </div>
-                      <button onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
-                        className="text-sm text-white/80 rounded-full px-4 py-1.5 hover:text-white transition-colors font-medium"
-                        style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)' }}
-                      >Bytt</button>
-                    </div>
-                  </div>
-                ) : (
-                  /* ── Ingen video: upload-prompt ── */
-                  <div className="py-14 flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
-                      style={{ background: 'rgba(5,150,105,0.1)', border: '1px solid rgba(5,150,105,0.2)' }}>
-                      <Upload size={26} className="text-emerald-600" />
-                    </div>
-                    <div className="text-center space-y-1.5">
-                      <p className="text-gray-900 font-semibold text-lg">Trykk for å velge video</p>
-                      <p className="text-black/40 text-base">eller dra og slipp her</p>
-                    </div>
-                    <p className="text-black/25 text-sm tracking-wide">MP4 · MOV · maks 50 MB</p>
-                  </div>
-                )}
+              {/* Drop zones */}
+              <div className="grid grid-cols-2 gap-3">
+                <VideoDropZone
+                  label="Fra siden" badge="Påkrevd"
+                  videoFile={videoFile} thumbnail={thumbnail} isDragging={isDragging}
+                  inputRef={fileInputRef}
+                  onDragOver={() => setIsDragging(true)}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={onDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  onFileChange={onFileChange}
+                  onSwap={() => fileInputRef.current?.click()}
+                />
+                <VideoDropZone
+                  label="Forfra" badge="Valgfritt"
+                  videoFile={videoFront} thumbnail={thumbFront} isDragging={isDraggingFront}
+                  inputRef={fileInputRefFront}
+                  onDragOver={() => setIsDraggingFront(true)}
+                  onDragLeave={() => setIsDraggingFront(false)}
+                  onDrop={onDropFront}
+                  onClick={() => fileInputRefFront.current?.click()}
+                  onFileChange={onFileChangeFront}
+                  onSwap={() => fileInputRefFront.current?.click()}
+                />
               </div>
 
               {/* Ball flight selector */}
@@ -973,14 +1036,24 @@ export default function Home() {
             <motion.div key="results" variants={stagger} initial="initial" animate="animate" className="pt-5 space-y-5">
 
               {/* ── Video replay ── */}
-              {previewUrl && (
+              {(previewUrl || previewFront) && (
                 <motion.div variants={item} className="space-y-2">
                   <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Din sving</p>
-                  <div className="rounded-3xl overflow-hidden"
-                    style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
-                    <video src={previewUrl} className="w-full max-h-72 object-cover bg-black"
-                      controls playsInline style={{ display: 'block' }} />
-                  </div>
+                  {previewUrl && previewFront ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {[{ src: previewUrl, label: 'Side' }, { src: previewFront, label: 'Forfra' }].map(v => (
+                        <div key={v.label} className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
+                          <video src={v.src} className="w-full object-cover bg-black" controls playsInline style={{ display: 'block' }} />
+                          <p className="text-xs text-center text-black/35 py-1.5 font-medium">{v.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-3xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
+                      <video src={previewUrl || previewFront!} className="w-full max-h-72 object-cover bg-black"
+                        controls playsInline style={{ display: 'block' }} />
+                    </div>
+                  )}
                 </motion.div>
               )}
 

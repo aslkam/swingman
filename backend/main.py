@@ -234,7 +234,7 @@ SKILL_CONTEXT = {
 }
 
 
-def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level: str = "middels", ball_flight: str = "") -> dict:
+def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level: str = "middels", ball_flight: str = "", keyframe_images_front: dict | None = None) -> dict:
     """Get Claude-based coaching feedback using both video frames and measurements"""
 
     data_text = json.dumps(measurements, indent=2, ensure_ascii=False)
@@ -290,22 +290,22 @@ phase angir hvilken sving-fase forbedringen gjelder (bruk nøyaktig en av de fir
         'follow_through': 'Follow-through',
     }
 
-    # Build multimodal content: images first, then measurements
+    # Build multimodal content: side view images first
     content = []
-    for phase in ['address', 'backswing_top', 'impact', 'follow_through']:
-        if phase in keyframe_images:
-            content.append({
-                "type": "text",
-                "text": f"**{phase_labels.get(phase, phase)}**"
-            })
-            content.append({
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/jpeg",
-                    "data": keyframe_images[phase],
-                }
-            })
+    if keyframe_images:
+        content.append({"type": "text", "text": "## Sidevideo — nøkkelbilder"})
+        for phase in ['address', 'backswing_top', 'impact', 'follow_through']:
+            if phase in keyframe_images:
+                content.append({"type": "text", "text": f"**{phase_labels.get(phase, phase)}**"})
+                content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": keyframe_images[phase]}})
+
+    # Front view images (if provided)
+    if keyframe_images_front:
+        content.append({"type": "text", "text": "## Frontvideo — nøkkelbilder"})
+        for phase in ['address', 'backswing_top', 'impact', 'follow_through']:
+            if phase in keyframe_images_front:
+                content.append({"type": "text", "text": f"**{phase_labels.get(phase, phase)}**"})
+                content.append({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": keyframe_images_front[phase]}})
 
     content.append({
         "type": "text",
@@ -356,7 +356,12 @@ async def health():
 
 
 @app.post("/analyze")
-async def analyze_swing(file: UploadFile = File(...), skill_level: str = Form(default="middels"), ball_flight: str = Form(default="")):
+async def analyze_swing(
+    file: UploadFile = File(...),
+    file_front: UploadFile | None = File(default=None),
+    skill_level: str = Form(default="middels"),
+    ball_flight: str = Form(default=""),
+):
     """
     Analyze a golf swing video
     
@@ -378,24 +383,34 @@ async def analyze_swing(file: UploadFile = File(...), skill_level: str = Form(de
             tmp.write(contents)
             tmp_path = tmp.name
         
+        tmp_front_path = None
         try:
-            # Analyze video
+            # Analyze side video
             measurements, keyframe_images = analyze_video(tmp_path)
-
             if not measurements:
                 raise HTTPException(status_code=400, detail="Kunne ikke analysere videoen. Prøv en annen video.")
 
+            # Analyze front video (optional)
+            keyframe_images_front = None
+            if file_front and file_front.filename:
+                contents_front = await file_front.read()
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp_f:
+                    tmp_f.write(contents_front)
+                    tmp_front_path = tmp_f.name
+                _, keyframe_images_front = analyze_video(tmp_front_path)
+
             # Get coaching feedback
-            feedback = get_coaching_feedback(measurements, keyframe_images, skill_level, ball_flight)
-            
+            feedback = get_coaching_feedback(measurements, keyframe_images, skill_level, ball_flight, keyframe_images_front)
+
             feedback['measurements'] = measurements
             feedback['keyframes'] = keyframe_images
             return feedback
-        
+
         finally:
-            # Clean up temporary file
             if os.path.exists(tmp_path):
                 os.remove(tmp_path)
+            if tmp_front_path and os.path.exists(tmp_front_path):
+                os.remove(tmp_front_path)
     
     except HTTPException:
         raise
