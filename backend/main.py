@@ -123,6 +123,25 @@ def draw_skeleton(frame: np.ndarray, landmarks) -> np.ndarray:
     return overlay
 
 
+def get_video_rotation(cap) -> int:
+    """Les rotasjonsmetadata fra video. Returnerer grader (0, 90, 180, 270)."""
+    rotation = int(cap.get(cv2.CAP_PROP_ORIENTATION_META))
+    if rotation not in (0, 90, 180, 270):
+        rotation = 0
+    return rotation
+
+
+def apply_rotation(frame: np.ndarray, rotation: int) -> np.ndarray:
+    """Roter frame basert på video-metadata."""
+    if rotation == 90:
+        return cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+    elif rotation == 180:
+        return cv2.rotate(frame, cv2.ROTATE_180)
+    elif rotation == 270:
+        return cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+    return frame
+
+
 def analyze_video(video_path: str) -> tuple[dict, dict]:
     """Analyze golf swing video with MediaPipe. Returns (measurements, keyframe_images)."""
     cap = cv2.VideoCapture(video_path)
@@ -130,6 +149,7 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
     if not cap.isOpened():
         raise ValueError("Cannot open video file")
 
+    rotation = get_video_rotation(cap)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     measurements = {}
     key_frame_indices = np.linspace(0, total_frames - 1, 4, dtype=int)
@@ -142,6 +162,8 @@ def analyze_video(video_path: str) -> tuple[dict, dict]:
         ret, frame = cap.read()
         if not ret:
             break
+
+        frame = apply_rotation(frame, rotation)
 
         # Capture raw frame at keyframe positions
         if frame_count in key_frame_indices:
