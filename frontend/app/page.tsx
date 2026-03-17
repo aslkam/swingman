@@ -589,10 +589,12 @@ function VideoSection({
   return (
     <div className="space-y-3">
       {label && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">{label}</p>}
-      {/* Synlig video (40px) — iOS laster bare videoer som er renderert og synlige */}
-      <video ref={videoRef} src={url} muted playsInline preload="auto"
-        style={{ width: '100%', height: 40, display: 'block', objectFit: 'cover', borderRadius: 8, background: '#0a0a0a' }}
-      />
+      {/* 1px synlig video — iOS laster videoer som er i DOM og har dimensjoner */}
+      <div style={{ height: 1, overflow: 'hidden' }}>
+        <video ref={videoRef} src={url} muted playsInline preload="auto"
+          style={{ width: '100%', height: 40, display: 'block' }}
+        />
+      </div>
       {PHASE_ORDER.map((phase) => {
         const autoIdx = phaseIndices[phase] ?? 0
         const curIdx  = confirmed[phase] ?? autoIdx
@@ -819,7 +821,7 @@ export default function Home() {
       } else if (err.response.status === 400) {
         msg = err.response.data?.detail || 'Ugyldig video. Prøv en annen fil.'
       } else if (err.response.status >= 500) {
-        msg = 'Serverfeil — prøv igjen om litt.'
+        msg = err.response.data?.detail ? `Serverfeil: ${err.response.data.detail}` : 'Serverfeil — prøv igjen om litt.'
       }
       setError(msg); setStage('idle')
     } finally {
