@@ -559,27 +559,37 @@ export default function Home() {
 
   const currentStepIndex = STEPS.findIndex(s => s.key === stage)
 
-  // Capture video thumbnail — søker til 10% av lengden for å unngå svart første frame
+  // Capture video thumbnail — prøver 25% av videolengden, bruker rAF for å sikre at framen er rendret
   const captureThumbnail = (_file: File, objectUrl: string): Promise<string> => {
     return new Promise((resolve) => {
       const video = document.createElement('video')
       const canvas = document.createElement('canvas')
+      let resolved = false
+      const done = (result: string) => { if (!resolved) { resolved = true; resolve(result) } }
+
+      const drawFrame = () => {
+        canvas.width  = video.videoWidth  || 640
+        canvas.height = video.videoHeight || 480
+        canvas.getContext('2d')?.drawImage(video, 0, 0)
+        done(canvas.toDataURL('image/jpeg', 0.85))
+      }
+
       video.src = objectUrl
       video.muted = true
       video.playsInline = true
       video.preload = 'metadata'
+
       video.addEventListener('loadedmetadata', () => {
-        // Søk til 10% av videolengden, minimum 0.5s
-        video.currentTime = Math.max(0.5, (video.duration || 5) * 0.1)
+        video.currentTime = Math.max(0.5, (video.duration || 4) * 0.25)
       })
+
       video.addEventListener('seeked', () => {
-        canvas.width  = video.videoWidth  || 640
-        canvas.height = video.videoHeight || 480
-        canvas.getContext('2d')?.drawImage(video, 0, 0)
-        resolve(canvas.toDataURL('image/jpeg', 0.85))
+        // rAF sikrer at browseren har rendret framen til canvas
+        requestAnimationFrame(() => requestAnimationFrame(drawFrame))
       })
-      video.addEventListener('error', () => resolve(''))
-      setTimeout(() => resolve(''), 6000) // fallback
+
+      video.addEventListener('error', () => done(''))
+      setTimeout(() => done(''), 8000)
     })
   }
 
