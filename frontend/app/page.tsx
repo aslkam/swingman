@@ -501,58 +501,43 @@ const PHASE_HINTS: Record<string, string> = {
   follow_through: 'Finn framen der svingen er ferdig — vekten på venstre fot, hofter vendt mot målet, køllen bak ryggen.',
 }
 
-// Viser video direkte i kortet (synlig) — iOS laster alltid synlige video-elementer.
-// Setter currentTime ved slider-drag. Ingen canvas, ingen skjulte elementer.
+// Canvas-capture fra delt synlig video. videoRef sendes inn fra FrameConfirmStep.
+// iOS: max 4 samtidige video-elementer — 2 synlige (én per seksjon) holder grensen.
 function PhaseVideoCard({
-  phase, src, fps, totalFrames, frameIdx, onChange, changed, defaultImage,
+  phase, videoRef, fps, totalFrames, frameIdx, onChange, changed, defaultImage,
 }: {
-  phase: string; src: string | null; fps: number; totalFrames: number
+  phase: string; videoRef: React.RefObject<HTMLVideoElement>; fps: number; totalFrames: number
   frameIdx: number; onChange: (v: number) => void; changed: boolean
   defaultImage?: string
 }) {
-  const videoRef = React.useRef<HTMLVideoElement>(null)
-  const [videoReady, setVideoReady] = React.useState(false)
-
-  // Sett startposisjon når metadata er lastet
-  const handleMetadata = () => {
-    const v = videoRef.current
-    if (!v) return
-    v.currentTime = frameIdx / fps
-  }
+  const [displaySrc, setDisplaySrc] = React.useState<string | null>(
+    defaultImage ? `data:image/jpeg;base64,${defaultImage}` : null
+  )
 
   const handleSlider = (newIdx: number) => {
     onChange(newIdx)
     const v = videoRef.current
-    if (v && v.readyState >= 1) {
-      v.currentTime = newIdx / fps
+    if (!v || v.readyState < 1) return
+    const capture = () => {
+      const c = document.createElement('canvas')
+      c.width = v.videoWidth || 640; c.height = v.videoHeight || 480
+      c.getContext('2d')?.drawImage(v, 0, 0)
+      setDisplaySrc(c.toDataURL('image/jpeg', 0.85))
     }
+    v.currentTime = newIdx / fps
+    v.addEventListener('seeked', capture, { once: true })
   }
 
   return (
-    <div className="rounded-3xl overflow-hidden"
-      style={{ boxShadow: '0 2px 20px rgba(0,0,0,0.12)' }}>
-      {/* Video-container — 120% gir litt crop (smal landscape-stil) */}
+    <div className="rounded-3xl overflow-hidden" style={{ boxShadow: '0 2px 20px rgba(0,0,0,0.12)' }}>
       <div style={{ position: 'relative', paddingTop: '120%', background: '#0a0a0a' }}>
-        {/* Backend-keyframe vises inntil video er søkt til riktig frame */}
-        {defaultImage && !videoReady && (
-          <img src={`data:image/jpeg;base64,${defaultImage}`} alt={phase}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
-        )}
-        {!defaultImage && !videoReady && (
-          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Loader2 size={24} className="text-white/30 animate-spin" />
-          </div>
-        )}
-        {src && (
-          <video ref={videoRef} src={src} muted playsInline preload="auto"
-            onLoadedMetadata={handleMetadata}
-            onSeeked={() => setVideoReady(true)}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover',
-              opacity: videoReady ? 1 : 0 }}
-          />
-        )}
-
-        {/* Gradient + tittel øverst */}
+        {displaySrc
+          ? <img src={displaySrc} alt={phase}
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+          : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Loader2 size={24} className="text-white/30 animate-spin" />
+            </div>
+        }
         <div className="absolute inset-x-0 top-0 h-20 pointer-events-none"
           style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)' }} />
         <div className="absolute top-3 left-3 right-3 pointer-events-none flex items-center justify-between">
@@ -564,8 +549,6 @@ function PhaseVideoCard({
             {(frameIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
           </span>
         </div>
-
-        {/* Gradient + slider nederst — over videoen */}
         <div className="absolute inset-x-0 bottom-0 pointer-events-none"
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)', height: '40%' }} />
         <div className="absolute inset-x-0 bottom-0 px-4 pb-3">
@@ -585,8 +568,41 @@ function PhaseVideoCard({
   )
 }
 
-// primaryUrl = backend sin "file" (side hvis lastet opp, ellers front)
-// secondaryUrl = backend sin "file_front" (kun hvis begge er lastet opp)
+// Én synlig <video> per seksjon — iOS laster maks 4 video-elementer simultant.
+// Med bare 2 synlige videoer er vi godt innenfor grensen.
+function VideoSection({
+  url, label, phaseIndices, keyframes, fps, totalFrames,
+  confirmed, setConfirmed,
+}: {
+  url: string; label?: string; phaseIndices: Record<string, number>
+  keyframes?: Record<string, string>; fps: number; totalFrames: number
+  confirmed: Record<string, number>; setConfirmed: (v: Record<string, number>) => void
+}) {
+  const videoRef = React.useRef<HTMLVideoElement>(null)
+
+  return (
+    <div className="space-y-3">
+      {label && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">{label}</p>}
+      {/* Synlig video — iOS laster den fordi den er i viewport */}
+      <video ref={videoRef} src={url} muted playsInline preload="auto"
+        style={{ width: '100%', height: 2, display: 'block', background: 'transparent' }}
+      />
+      {PHASE_ORDER.map((phase) => {
+        const autoIdx = phaseIndices[phase] ?? 0
+        const curIdx  = confirmed[phase] ?? autoIdx
+        return (
+          <PhaseVideoCard key={phase} phase={phase} videoRef={videoRef}
+            fps={fps} totalFrames={totalFrames}
+            frameIdx={curIdx} changed={curIdx !== autoIdx}
+            defaultImage={keyframes?.[phase]}
+            onChange={(v) => setConfirmed({ ...confirmed, [phase]: v })}
+          />
+        )
+      })}
+    </div>
+  )
+}
+
 function FrameConfirmStep({
   previewData, primaryUrl, secondaryUrl, primaryLabel,
   confirmedSide, setConfirmedSide,
@@ -609,39 +625,29 @@ function FrameConfirmStep({
       </div>
 
       {primaryUrl && (
-        <div className="space-y-3">
-          {hasSecondary && <p className="text-xs font-bold text-black/35 uppercase tracking-widest">{primaryLabel}</p>}
-          {PHASE_ORDER.map((phase) => {
-            const autoIdx = previewData.phase_indices?.[phase] ?? 0
-            const curIdx  = confirmedSide[phase] ?? autoIdx
-            return (
-              <PhaseVideoCard key={`primary-${phase}`} phase={phase} src={primaryUrl}
-                fps={previewData.fps ?? 30} totalFrames={previewData.total_frames ?? 100}
-                frameIdx={curIdx} changed={curIdx !== autoIdx}
-                defaultImage={previewData.keyframes?.[phase]}
-                onChange={(v) => setConfirmedSide({ ...confirmedSide, [phase]: v })}
-              />
-            )
-          })}
-        </div>
+        <VideoSection
+          url={primaryUrl}
+          label={hasSecondary ? primaryLabel : undefined}
+          phaseIndices={previewData.phase_indices ?? {}}
+          keyframes={previewData.keyframes}
+          fps={previewData.fps ?? 30}
+          totalFrames={previewData.total_frames ?? 100}
+          confirmed={confirmedSide}
+          setConfirmed={setConfirmedSide}
+        />
       )}
 
       {hasSecondary && secondaryUrl && (
-        <div className="space-y-3">
-          <p className="text-xs font-bold text-black/35 uppercase tracking-widest">Forfra</p>
-          {PHASE_ORDER.map((phase) => {
-            const autoIdx = previewData.phase_indices_front?.[phase] ?? 0
-            const curIdx  = confirmedFront[phase] ?? autoIdx
-            return (
-              <PhaseVideoCard key={`secondary-${phase}`} phase={phase} src={secondaryUrl}
-                fps={previewData.fps_front ?? 30} totalFrames={previewData.total_frames_front ?? 100}
-                frameIdx={curIdx} changed={curIdx !== autoIdx}
-                defaultImage={previewData.keyframes_front?.[phase]}
-                onChange={(v) => setConfirmedFront({ ...confirmedFront, [phase]: v })}
-              />
-            )
-          })}
-        </div>
+        <VideoSection
+          url={secondaryUrl}
+          label="Forfra"
+          phaseIndices={previewData.phase_indices_front ?? {}}
+          keyframes={previewData.keyframes_front}
+          fps={previewData.fps_front ?? 30}
+          totalFrames={previewData.total_frames_front ?? 100}
+          confirmed={confirmedFront}
+          setConfirmed={setConfirmedFront}
+        />
       )}
     </motion.div>
   )
