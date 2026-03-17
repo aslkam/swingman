@@ -1062,7 +1062,7 @@ export default function Home() {
                     </div>
                   ) : (
                     <div className="rounded-3xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
-                      <video src={previewUrl || previewFront!} className="w-full max-h-72 object-cover bg-black"
+                      <video src={previewUrl ?? previewFront ?? ''} className="w-full max-h-72 object-cover bg-black"
                         controls playsInline style={{ display: 'block' }} />
                     </div>
                   )}
@@ -1156,30 +1156,34 @@ export default function Home() {
                             {/* Mørk gradient nedenfra */}
                             <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 45%, transparent 70%)' }} />
 
-                            {/* Tekst-innhold */}
+                            {/* Tekst-innhold — scrollbar */}
                             <motion.div
-                              className="absolute bottom-0 left-0 right-0 p-6"
+                              className="absolute bottom-0 left-0 right-0 overflow-y-auto"
+                              style={{ maxHeight: '60%' }}
                               initial={{ opacity: 0, y: 12 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0 }}
                               transition={{ delay: 0.15, duration: 0.25 }}
+                              onClick={(e) => e.stopPropagation()}
                             >
-                              <div className="flex items-center gap-2.5 mb-4">
-                                <p className="text-white font-bold text-xl">{PHASE_LABELS[phase]}</p>
-                                <span className="text-white text-xs font-bold px-2.5 py-1 rounded-full"
-                                  style={{ background: kpiStyle.bg }}>
-                                  {kpiStyle.label}
-                                </span>
-                              </div>
-                              {phaseImprovements.length > 0 ? phaseImprovements.map((imp: any, i: number) => (
-                                <div key={i} className={`${i > 0 ? 'mt-4 pt-4 border-t border-white/10' : ''}`}>
-                                  <p className="text-white font-semibold text-base leading-snug">{imp.area}</p>
-                                  <p className="text-white/75 text-sm leading-relaxed mt-1">{imp.tip}</p>
+                              <div className="p-6">
+                                <div className="flex items-center gap-2.5 mb-4">
+                                  <p className="text-white font-bold text-xl">{PHASE_LABELS[phase]}</p>
+                                  <span className="text-white text-xs font-bold px-2.5 py-1 rounded-full"
+                                    style={{ background: kpiStyle.bg }}>
+                                    {kpiStyle.label}
+                                  </span>
                                 </div>
-                              )) : (
-                                <p className="text-white/80 text-base leading-relaxed">Ingen vesentlige feil i denne fasen.</p>
-                              )}
-                              <p className="text-white/30 text-xs text-center mt-6">Trykk for å lukke</p>
+                                {phaseImprovements.length > 0 ? phaseImprovements.map((imp: any, i: number) => (
+                                  <div key={i} className={`${i > 0 ? 'mt-4 pt-4 border-t border-white/10' : ''}`}>
+                                    <p className="text-white font-semibold text-base leading-snug">{imp.area}</p>
+                                    <p className="text-white/75 text-sm leading-relaxed mt-1">{imp.tip}</p>
+                                  </div>
+                                )) : (
+                                  <p className="text-white/80 text-base leading-relaxed">Ingen vesentlige feil i denne fasen.</p>
+                                )}
+                                <p className="text-white/30 text-xs text-center mt-6">Trykk utenfor teksten for å lukke</p>
+                              </div>
                             </motion.div>
 
                             {/* KPI-badge øverst */}
@@ -1370,14 +1374,14 @@ export default function Home() {
               <motion.button whileTap={{ scale: 0.97 }} onClick={handleAnalyze} disabled={!videoFile && !videoFront}
                 className="w-full py-4 rounded-2xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 style={{
-                  background: videoFile ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'rgba(0,0,0,0.07)',
-                  color: videoFile ? '#fff' : 'rgba(0,0,0,0.25)',
-                  boxShadow: videoFile ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 32px rgba(5,150,105,0.4)' : 'none',
+                  background: (videoFile || videoFront) ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'rgba(0,0,0,0.07)',
+                  color: (videoFile || videoFront) ? '#fff' : 'rgba(0,0,0,0.25)',
+                  boxShadow: (videoFile || videoFront) ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 32px rgba(5,150,105,0.4)' : 'none',
                 }}>
                 <span className="flex items-center justify-center gap-2">
-                  <Sparkles size={18} className={videoFile ? 'text-white/80' : ''} />
+                  <Sparkles size={18} className={(videoFile || videoFront) ? 'text-white/80' : ''} />
                   Analyser sving
-                  {videoFile && <ChevronRight size={16} />}
+                  {(videoFile || videoFront) && <ChevronRight size={16} />}
                 </span>
               </motion.button>
 
