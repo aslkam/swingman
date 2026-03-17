@@ -1140,66 +1140,51 @@ export default function Home() {
                             exit={{ opacity: 0 }}
                             onClick={() => setSelectedPhase(null)}
                           />
-                          {/* Kortет som ekspanderer */}
+                          {/* Kort som ekspanderer — flex column for scrollbar tekst */}
                           <motion.div
                             layoutId={`phase-card-${phase}`}
-                            className="fixed z-50 overflow-hidden cursor-pointer"
-                            style={{ borderRadius: 24, inset: '16px', maxWidth: 500, margin: '0 auto' }}
-                            onClick={() => setSelectedPhase(null)}
+                            className="fixed z-50 flex flex-col"
+                            style={{ borderRadius: 24, inset: '16px', maxWidth: 500, margin: '0 auto', background: '#111' }}
                           >
-                            <img
-                              src={`data:image/jpeg;base64,${results.keyframes[phase]}`}
-                              alt={PHASE_LABELS[phase]}
-                              className="w-full h-full object-cover object-top"
-                              style={{ maxHeight: '100%' }}
-                            />
-                            {/* Mørk gradient nedenfra */}
-                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 45%, transparent 70%)' }} />
+                            {/* Bilde — fast høyde øverst, klikk lukker */}
+                            <div className="relative shrink-0 cursor-pointer" style={{ height: '45%' }}
+                              onClick={() => setSelectedPhase(null)}>
+                              <img
+                                src={`data:image/jpeg;base64,${results.keyframes[phase]}`}
+                                alt={PHASE_LABELS[phase]}
+                                className="w-full h-full object-cover object-top"
+                              />
+                              <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 60%, #111 100%)' }} />
+                              <span className="absolute top-4 right-4 text-white text-xs font-bold px-2.5 py-1 rounded-full"
+                                style={{ background: kpiStyle.bg }}>
+                                {kpiStyle.label}
+                              </span>
+                              <span className="absolute top-4 left-4 text-white/50 text-xs">Trykk for å lukke</span>
+                            </div>
 
-                            {/* Tekst-innhold — scrollbar */}
+                            {/* Tekst — scrollbar, normal dokumentflyt */}
                             <motion.div
-                              className="absolute bottom-0 left-0 right-0"
-                              style={{
-                                maxHeight: '60%',
-                                overflowY: 'scroll',
-                                WebkitOverflowScrolling: 'touch',
-                                touchAction: 'pan-y',
-                              }}
-                              initial={{ opacity: 0, y: 12 }}
-                              animate={{ opacity: 1, y: 0 }}
+                              className="flex-1 overflow-y-auto"
+                              style={{ background: '#111' }}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              transition={{ delay: 0.15, duration: 0.25 }}
-                              onClick={(e) => e.stopPropagation()}
-                              onTouchStart={(e) => e.stopPropagation()}
-                              onTouchMove={(e) => e.stopPropagation()}
+                              transition={{ delay: 0.15, duration: 0.2 }}
                             >
-                              <div className="p-6">
+                              <div className="p-6 pb-10">
                                 <div className="flex items-center gap-2.5 mb-4">
                                   <p className="text-white font-bold text-xl">{PHASE_LABELS[phase]}</p>
-                                  <span className="text-white text-xs font-bold px-2.5 py-1 rounded-full"
-                                    style={{ background: kpiStyle.bg }}>
-                                    {kpiStyle.label}
-                                  </span>
                                 </div>
                                 {phaseImprovements.length > 0 ? phaseImprovements.map((imp: any, i: number) => (
-                                  <div key={i} className={`${i > 0 ? 'mt-4 pt-4 border-t border-white/10' : ''}`}>
+                                  <div key={i} className={`${i > 0 ? 'mt-5 pt-5 border-t border-white/10' : ''}`}>
                                     <p className="text-white font-semibold text-base leading-snug">{imp.area}</p>
-                                    <p className="text-white/75 text-sm leading-relaxed mt-1">{imp.tip}</p>
+                                    <p className="text-white/70 text-sm leading-relaxed mt-1.5">{imp.tip}</p>
                                   </div>
                                 )) : (
                                   <p className="text-white/80 text-base leading-relaxed">Ingen vesentlige feil i denne fasen.</p>
                                 )}
-                                <p className="text-white/30 text-xs text-center mt-6">Trykk utenfor teksten for å lukke</p>
                               </div>
                             </motion.div>
-
-                            {/* KPI-badge øverst */}
-                            <div className="absolute top-4 right-4">
-                              <span className="text-white text-xs font-bold px-2.5 py-1 rounded-full"
-                                style={{ background: kpiStyle.bg, backdropFilter: 'blur(8px)' }}>
-                                {kpiStyle.label}
-                              </span>
-                            </div>
                           </motion.div>
                         </>
                       )
