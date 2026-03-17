@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload, ChevronRight, RotateCcw, CheckCircle2, Loader2,
   TrendingUp, AlertCircle, Share2, X, Clock, Check,
-  Sparkles, Info, BookOpen,
+  Sparkles, Info,
 } from 'lucide-react'
 import axios from 'axios'
 
@@ -102,7 +102,7 @@ type SkillLevel = 'nybegynner' | 'middels' | 'avansert'
 interface AngleSnapshot { shoulder: number; hip: number; spine: number }
 interface HistoryEntry {
   id: string; date: string; score: number; summary: string
-  improvements_count: number; angles?: AngleSnapshot
+  improvements_count: number; angles?: AngleSnapshot; top_areas?: string[]
 }
 
 // Nøkkelmålinger å vise med referanseverdier
@@ -443,14 +443,14 @@ function SkillSlider({ value, onChange }: { value: SkillLevel; onChange: (v: Ski
 
 function VideoDropZone({
   label, badge, videoFile, thumbnail, isDragging,
-  inputRef, onDragOver, onDragLeave, onDrop, onClick, onFileChange, onSwap,
+  inputRef, onDragOver, onDragLeave, onDrop, onClick, onFileChange, onSwap, onRemove,
 }: {
   label: string; badge?: string; videoFile: File | null; thumbnail: string | null
   isDragging: boolean; inputRef: React.RefObject<HTMLInputElement>
   onDragOver: () => void; onDragLeave: () => void
   onDrop: (e: React.DragEvent) => void; onClick: () => void
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void
-  onSwap: () => void
+  onSwap: () => void; onRemove: () => void
 }) {
   return (
     <div className="space-y-1.5">
@@ -491,10 +491,16 @@ function VideoDropZone({
             )}
             <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
               <p className="text-white text-xs font-medium truncate max-w-[140px]">{videoFile.name}</p>
-              <button onClick={(e) => { e.stopPropagation(); onSwap() }}
-                className="text-xs text-white/80 rounded-full px-3 py-1 font-medium"
-                style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)' }}
-              >Bytt</button>
+              <div className="flex gap-1.5">
+                <button onClick={(e) => { e.stopPropagation(); onRemove() }}
+                  className="text-xs text-white/70 rounded-full px-2.5 py-1 font-medium"
+                  style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.15)' }}
+                >Fjern</button>
+                <button onClick={(e) => { e.stopPropagation(); onSwap() }}
+                  className="text-xs text-white/80 rounded-full px-3 py-1 font-medium"
+                  style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.2)' }}
+                >Bytt</button>
+              </div>
             </div>
           </div>
         ) : (
@@ -663,13 +669,22 @@ export default function Home() {
           hip:      Math.round(m.backswing_top.hip_rotation ?? 0),
           spine:    Math.round(m.address?.spine_angle ?? 0),
         } : undefined,
+        top_areas: (res.data.improvements ?? []).slice(0, 2).map((i: any) => i.area).filter(Boolean),
       }
       const newHistory = [entry, ...loadHistory()].slice(0, 10)
       localStorage.setItem(HISTORY_KEY, JSON.stringify(newHistory)); setHistory(newHistory)
       setResults(res.data); setStage('done')
     } catch (err: any) {
       if (progressTimer.current) clearTimeout(progressTimer.current)
-      setError(err.response?.data?.detail || 'Analyse feilet. Prøv igjen.'); setStage('idle')
+      let msg = 'Analyse feilet. Prøv igjen.'
+      if (!err.response) {
+        msg = 'Kunne ikke koble til serveren. Sjekk internettforbindelsen din.'
+      } else if (err.response.status === 400) {
+        msg = err.response.data?.detail || 'Ugyldig video. Prøv en annen fil.'
+      } else if (err.response.status >= 500) {
+        msg = 'Serverfeil — prøv igjen om litt.'
+      }
+      setError(msg); setStage('idle')
     } finally {
       if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     }
@@ -731,7 +746,7 @@ export default function Home() {
                     ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
                     : 'text-black/35 hover:text-black/60'
                 }`}>
-                <BookOpen size={14} />
+                <Info size={14} />
                 Guide
               </button>
             )}
@@ -840,6 +855,7 @@ export default function Home() {
                   onClick={() => fileInputRef.current?.click()}
                   onFileChange={onFileChange}
                   onSwap={() => fileInputRef.current?.click()}
+                  onRemove={() => { if (previewUrl) URL.revokeObjectURL(previewUrl); setVideoFile(null); setPreviewUrl(null); setThumbnail(null) }}
                 />
                 <VideoDropZone
                   label="Forfra" badge="Valgfritt"
@@ -851,6 +867,7 @@ export default function Home() {
                   onClick={() => fileInputRefFront.current?.click()}
                   onFileChange={onFileChangeFront}
                   onSwap={() => fileInputRefFront.current?.click()}
+                  onRemove={() => { if (previewFront) URL.revokeObjectURL(previewFront); setVideoFront(null); setPreviewFront(null); setThumbFront(null) }}
                 />
               </div>
 
@@ -937,6 +954,14 @@ export default function Home() {
                             </div>
                             <span className="text-black/25 text-xs shrink-0">{e.improvements_count} forb.</span>
                           </div>
+                          {/* Top areas */}
+                          {e.top_areas && e.top_areas.length > 0 && (
+                            <div className="flex gap-1.5 mt-2 flex-wrap">
+                              {e.top_areas.map((area: string) => (
+                                <span key={area} className="text-[10px] text-amber-700/70 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-full">{area}</span>
+                              ))}
+                            </div>
+                          )}
                           {/* Angle snapshot */}
                           {e.angles && (
                             <div className="flex gap-2 mt-2.5 flex-wrap">
@@ -1069,6 +1094,19 @@ export default function Home() {
                 </motion.div>
               )}
 
+              {/* ── Score ── */}
+              <motion.div variants={item}>
+                <div className="rounded-3xl overflow-hidden"
+                  style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 4px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
+                  <div className="px-6 pt-7 pb-5">
+                    <div className="flex justify-center">
+                      <ScoreRing score={score} showInfo={scoreInfoOpen} onToggleInfo={() => setScoreInfoOpen(v => !v)} />
+                    </div>
+                    <p className="text-black/50 text-base leading-relaxed text-center mt-4 max-w-xs mx-auto">{results.summary}</p>
+                  </div>
+                </div>
+              </motion.div>
+
               {/* ── Oppsummering + Keyframes ── */}
               {results.keyframes && Object.keys(results.keyframes).length > 0 && (
                 <motion.div variants={item} className="space-y-3">
@@ -1193,6 +1231,17 @@ export default function Home() {
                 </motion.div>
               )}
 
+              {/* Demo placeholder for keyframes */}
+              {isDemo && (
+                <motion.div variants={item}>
+                  <div className="rounded-2xl px-4 py-5 text-center space-y-2"
+                    style={{ background: 'rgba(5,150,105,0.05)', border: '1.5px dashed rgba(5,150,105,0.25)' }}>
+                    <p className="text-sm font-semibold text-emerald-700/70">Faseinspeksjon med skjelett-overlay</p>
+                    <p className="text-xs text-black/40 leading-relaxed">Last opp din egen video for å se adresse, backswing, impact og follow-through med AI-tegnet skjelett og KPI-vurdering.</p>
+                  </div>
+                </motion.div>
+              )}
+
               {/* ── Prioritert øvelse (enkel) ── */}
               {results.priority_drill && (
                 <motion.div variants={item}>
@@ -1235,29 +1284,6 @@ export default function Home() {
                     transition={{ duration: 0.35, ease }}
                     className="space-y-5"
                   >
-                    {/* Score */}
-                    <div className="rounded-3xl overflow-hidden"
-                      style={{ ...glass, border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 4px 40px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.95)' }}>
-                      <div className="px-6 pt-7 pb-5">
-                        <div className="flex justify-center">
-                          <ScoreRing score={score} showInfo={scoreInfoOpen} onToggleInfo={() => setScoreInfoOpen(v => !v)} />
-                        </div>
-                        <p className="text-black/50 text-base leading-relaxed text-center mt-4 max-w-xs mx-auto">{results.summary}</p>
-                      </div>
-                      <div className="grid grid-cols-3 divide-x divide-black/[0.06]" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                        {[
-                          { label: 'Styrker',      value: results.strengths?.length ?? 0, color: 'text-emerald-600' },
-                          { label: 'Forbedringer', value: improvements.length,            color: 'text-amber-500' },
-                          { label: 'Øvelse',       value: results.priority_drill ? '1' : '0', color: 'text-blue-600' },
-                        ].map(s => (
-                          <div key={s.label} className="py-4 flex flex-col items-center gap-0.5">
-                            <span className={`text-2xl font-bold ${s.color}`}>{s.value}</span>
-                            <span className="text-black/35 text-sm font-medium">{s.label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
                     {/* Styrker */}
                     {results.strengths && results.strengths.length > 0 && (
                       <div className="space-y-2">
@@ -1348,7 +1374,7 @@ export default function Home() {
       {/* ══════════════════ FIXED BOTTOM CTA ══════════════════ */}
 
       <AnimatePresence>
-        {stage === 'idle' && !results && (
+        {stage === 'idle' && !results && (videoFile || videoFront) && (
           <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
             transition={{ duration: 0.4, ease }} className="fixed bottom-0 inset-x-0 z-30">
             <div className="max-w-xl mx-auto px-5 pb-6 pt-4"

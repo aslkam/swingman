@@ -257,6 +257,35 @@ SKILL_CONTEXT = {
 }
 
 
+def load_expert_examples() -> str:
+    """Laster ekspert-annotasjoner og formaterer dem som few-shot-eksempler."""
+    if not ANNOTATIONS_FILE.exists():
+        return ""
+    try:
+        with open(ANNOTATIONS_FILE) as f:
+            annotations = json.load(f)
+        if not annotations:
+            return ""
+        examples = annotations[-3:]  # Bruk de 3 nyeste
+        lines = ["\n\n## Eksempel-analyser fra sertifisert golfinstruktør:\n"]
+        for ex in examples:
+            lines.append(f"Nivå: {ex.get('skill_level', 'middels')}")
+            lines.append(f"Oppsummering: {ex.get('summary', '')}")
+            if ex.get('improvements'):
+                for imp in ex['improvements'][:2]:
+                    lines.append(f"- {imp.get('area', '')}: {imp.get('tip', '')}")
+            if ex.get('priority_drill'):
+                lines.append(f"Prioritert øvelse: {ex['priority_drill'].get('name', '')}")
+            if ex.get('avoid_focus'):
+                avoids = [a for a in ex['avoid_focus'] if a.strip()]
+                if avoids:
+                    lines.append(f"IKKE fokuser på: {', '.join(avoids)}")
+            lines.append("")
+        return "\n".join(lines)
+    except Exception:
+        return ""
+
+
 def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level: str = "middels", ball_flight: str = "", keyframe_images_front: dict | None = None) -> dict:
     """Get Claude-based coaching feedback using both video frames and measurements"""
 
@@ -269,6 +298,8 @@ def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level
             labels = {"tykk": "duff (klubben treffer bakken før ballen)", "tynn": "tynt balltreff (klubben skraper toppen av ballen)", "høyre": "høyreskru (ballen sveier til høyre, push/slice)", "venstre": "venstreskru (ballen sveier til venstre, hook/pull)"}
             described = [labels.get(i, i) for i in issues]
             ball_flight_text = f"\nSpilleren opplever spesielt disse problemene: {', '.join(described)}. Adresser disse konkret i analysen."
+
+    expert_examples = load_expert_examples()
 
     system_prompt = f"""Du er en profesjonell golfinstruktør med 20 års erfaring.
 {skill_text}
@@ -304,7 +335,7 @@ Returner alltid svaret som gyldig JSON med denne strukturen:
 
 score er et tall mellom 0 og 100 som gjenspeiler den totale kvaliteten på svingen.
 impact angir hvor stor effekt forbedringen vil ha på svingen (high/medium/low).
-phase angir hvilken sving-fase forbedringen gjelder (bruk nøyaktig en av de fire verdiene).{ball_flight_text}"""
+phase angir hvilken sving-fase forbedringen gjelder (bruk nøyaktig en av de fire verdiene).{ball_flight_text}{expert_examples}"""
 
     phase_labels = {
         'address': 'Adresse (utgangsstilling)',
