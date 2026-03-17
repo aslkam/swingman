@@ -629,13 +629,16 @@ export default function Home() {
   }
 
   const handleAnalyze = async () => {
-    if (!videoFile) return
+    if (!videoFile && !videoFront) return
     setError(null); setStage('uploading'); setElapsedSeconds(0)
     elapsedTimer.current = setInterval(() => setElapsedSeconds(s => s + 1), 1000)
     try {
       const form = new FormData()
-      form.append('file', videoFile)
-      if (videoFront) form.append('file_front', videoFront)
+      // Bruk sidevideo som primær hvis tilgjengelig, ellers frontvideo
+      const primaryFile = videoFile ?? videoFront!
+      const secondaryFile = videoFile && videoFront ? videoFront : null
+      form.append('file', primaryFile)
+      if (secondaryFile) form.append('file_front', secondaryFile)
       form.append('skill_level', skillLevel)
       form.append('ball_flight', ballFlight.join(','))
       const res = await axios.post(`${BACKEND_URL}/analyze`, form, {
@@ -711,6 +714,12 @@ export default function Home() {
             <span className="font-semibold tracking-tight text-base" style={{ color: '#1d1d1f' }}>Swingman</span>
           </div>
           <div className="flex items-center gap-3">
+            {/* Ekspert-link (pilot) */}
+            <a href="/ekspert"
+              className="text-xs text-black/30 hover:text-black/55 transition-colors font-medium px-2 py-1 rounded-full"
+              style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
+              Ekspert
+            </a>
             {/* Guide toggle */}
             {stage === 'idle' && !results && (
               <button onClick={() => setGuideVisible(v => !v)}
@@ -812,14 +821,14 @@ export default function Home() {
                 style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)' }}>
                 <span className="text-base">📐</span>
                 <p className="text-sm text-emerald-800/75 leading-snug">
-                  <strong>To videoer gir best resultat.</strong> Side er påkrevd, forfra er valgfritt.
+                  <strong>Minst én video er nødvendig.</strong> To videoer gir klart best resultat — men én er nok til å komme i gang.
                 </p>
               </div>
 
               {/* Drop zones */}
               <div className="grid grid-cols-2 gap-3">
                 <VideoDropZone
-                  label="Fra siden" badge="Påkrevd"
+                  label="Fra siden" badge="Anbefalt"
                   videoFile={videoFile} thumbnail={thumbnail} isDragging={isDragging}
                   inputRef={fileInputRef}
                   onDragOver={() => setIsDragging(true)}
@@ -1248,7 +1257,7 @@ export default function Home() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={handleAnalyze} disabled={!videoFile}
+              <motion.button whileTap={{ scale: 0.97 }} onClick={handleAnalyze} disabled={!videoFile && !videoFront}
                 className="w-full py-4 rounded-2xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 style={{
                   background: videoFile ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'rgba(0,0,0,0.07)',
