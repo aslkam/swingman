@@ -610,17 +610,12 @@ function VideoSection({
 }
 
 function FrameConfirmStep({
-  previewData, primaryUrl, secondaryUrl, primaryLabel,
+  previewData, videoUrl,
   confirmedSide, setConfirmedSide,
-  confirmedFront, setConfirmedFront,
 }: {
-  previewData: any
-  primaryUrl: string | null; secondaryUrl: string | null; primaryLabel: string
+  previewData: any; videoUrl: string | null
   confirmedSide: Record<string, number>; setConfirmedSide: (v: Record<string, number>) => void
-  confirmedFront: Record<string, number>; setConfirmedFront: (v: Record<string, number>) => void
 }) {
-  const hasSecondary = !!secondaryUrl && !!previewData.phase_indices_front
-
   return (
     <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
       <div>
@@ -630,29 +625,15 @@ function FrameConfirmStep({
         </p>
       </div>
 
-      {primaryUrl && (
+      {videoUrl && (
         <VideoSection
-          url={primaryUrl}
-          label={hasSecondary ? primaryLabel : undefined}
+          url={videoUrl}
           phaseIndices={previewData.phase_indices ?? {}}
           keyframes={previewData.keyframes}
           fps={previewData.fps ?? 30}
           totalFrames={previewData.total_frames ?? 100}
           confirmed={confirmedSide}
           setConfirmed={setConfirmedSide}
-        />
-      )}
-
-      {hasSecondary && secondaryUrl && (
-        <VideoSection
-          url={secondaryUrl}
-          label="Forfra"
-          phaseIndices={previewData.phase_indices_front ?? {}}
-          keyframes={previewData.keyframes_front}
-          fps={previewData.fps_front ?? 30}
-          totalFrames={previewData.total_frames_front ?? 100}
-          confirmed={confirmedFront}
-          setConfirmed={setConfirmedFront}
         />
       )}
     </motion.div>
@@ -666,16 +647,11 @@ export default function Home() {
   const [previewUrl, setPreviewUrl]       = useState<string | null>(null)
   const [thumbnail, setThumbnail]         = useState<string | null>(null)
   const [isDragging, setIsDragging]       = useState(false)
-  const [videoFront, setVideoFront]       = useState<File | null>(null)
-  const [previewFront, setPreviewFront]   = useState<string | null>(null)
-  const [thumbFront, setThumbFront]       = useState<string | null>(null)
-  const [isDraggingFront, setIsDraggingFront] = useState(false)
   const [stage, setStage]               = useState<Stage>('idle')
   const [results, setResults]           = useState<any>(null)
   const [error, setError]               = useState<string | null>(null)
   const [previewData, setPreviewData]   = useState<any>(null)
   const [confirmedSide, setConfirmedSide]   = useState<Record<string, number>>({})
-  const [confirmedFront, setConfirmedFront] = useState<Record<string, number>>({})
   const [skillLevel, setSkillLevel]     = useState<SkillLevel>('middels')
   const [ballFlight, setBallFlight]     = useState<string[]>([])
   const [history, setHistory]           = useState<HistoryEntry[]>([])
@@ -690,7 +666,6 @@ export default function Home() {
   const [scoreInfoOpen, setScoreInfoOpen] = useState(false)
 
   const fileInputRef      = useRef<HTMLInputElement>(null)
-  const fileInputRefFront = useRef<HTMLInputElement>(null)
   const progressTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const elapsedTimer   = useRef<ReturnType<typeof setInterval> | null>(null)
   const tipTimer       = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -704,13 +679,12 @@ export default function Home() {
 
   useEffect(() => {
     return () => {
-      if (previewUrl)   URL.revokeObjectURL(previewUrl)
-      if (previewFront) URL.revokeObjectURL(previewFront)
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
       if (progressTimer.current) clearTimeout(progressTimer.current)
       if (elapsedTimer.current)  clearInterval(elapsedTimer.current)
       if (tipTimer.current)      clearInterval(tipTimer.current)
     }
-  }, [previewUrl, previewFront])
+  }, [previewUrl])
 
   const isAnalyzing  = ['uploading','analyzing','generating'].includes(stage)
   const isPreviewing = stage === 'previewing'
@@ -773,19 +747,8 @@ export default function Home() {
     setThumbnail(thumb || null)
   }, [previewUrl])
 
-  const pickFileFront = useCallback(async (file: File) => {
-    if (file.size > 100 * 1024 * 1024) { setError('Videoen er for stor. Maks 100 MB.'); return }
-    if (previewFront) URL.revokeObjectURL(previewFront)
-    const url = URL.createObjectURL(file)
-    setVideoFront(file); setPreviewFront(url); setError(null)
-    const thumb = await captureThumbnail(file, url)
-    setThumbFront(thumb || null)
-  }, [previewFront])
-
-  const onFileChange      = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFile(f) }
-  const onFileChangeFront = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFileFront(f) }
-  const onDrop      = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false);      const f = e.dataTransfer.files?.[0]; if (f) pickFile(f) }
-  const onDropFront = (e: React.DragEvent) => { e.preventDefault(); setIsDraggingFront(false); const f = e.dataTransfer.files?.[0]; if (f) pickFileFront(f) }
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => { const f = e.target.files?.[0]; if (f) pickFile(f) }
+  const onDrop      = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(false); const f = e.dataTransfer.files?.[0]; if (f) pickFile(f) }
 
   const handleDemo = () => {
     setError(null)
@@ -795,20 +758,16 @@ export default function Home() {
   }
 
   const handlePreview = async () => {
-    if (!videoFile && !videoFront) return
+    if (!videoFile) return
     setError(null); setStage('previewing')
     try {
       const form = new FormData()
-      const primaryFile = videoFile ?? videoFront!
-      const secondaryFile = videoFile && videoFront ? videoFront : null
-      form.append('file', primaryFile)
-      if (secondaryFile) form.append('file_front', secondaryFile)
+      form.append('file', videoFile)
       const res = await axios.post(`${BACKEND_URL}/preview`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       setPreviewData(res.data)
       setConfirmedSide(res.data.phase_indices ?? {})
-      setConfirmedFront(res.data.phase_indices_front ?? {})
       setStage('preview')
     } catch (err: any) {
       let msg = 'Forhåndsvisning feilet. Prøv igjen.'
@@ -818,22 +777,16 @@ export default function Home() {
   }
 
   const handleAnalyze = async () => {
-    if (!videoFile && !videoFront) return
+    if (!videoFile) return
     setError(null); setStage('uploading'); setElapsedSeconds(0)
     elapsedTimer.current = setInterval(() => setElapsedSeconds(s => s + 1), 1000)
     try {
       const form = new FormData()
-      // Bruk sidevideo som primær hvis tilgjengelig, ellers frontvideo
-      const primaryFile = videoFile ?? videoFront!
-      const secondaryFile = videoFile && videoFront ? videoFront : null
-      form.append('file', primaryFile)
-      if (secondaryFile) form.append('file_front', secondaryFile)
+      form.append('file', videoFile)
       form.append('skill_level', skillLevel)
       form.append('ball_flight', ballFlight.join(','))
       if (Object.keys(confirmedSide).length > 0)
         form.append('frame_overrides_side', JSON.stringify(confirmedSide))
-      if (secondaryFile && Object.keys(confirmedFront).length > 0)
-        form.append('frame_overrides_front', JSON.stringify(confirmedFront))
       const res = await axios.post(`${BACKEND_URL}/analyze`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (e) => {
@@ -875,14 +828,12 @@ export default function Home() {
   }
 
   const handleReset = () => {
-    if (previewUrl)   URL.revokeObjectURL(previewUrl)
-    if (previewFront) URL.revokeObjectURL(previewFront)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
     if (progressTimer.current) clearTimeout(progressTimer.current)
     if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     setVideoFile(null); setPreviewUrl(null); setThumbnail(null)
-    setVideoFront(null); setPreviewFront(null); setThumbFront(null)
     setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false); setBallFlight([]); setSelectedPhase(null)
-    setPreviewData(null); setConfirmedSide({}); setConfirmedFront({})
+    setPreviewData(null); setConfirmedSide({})
   }
 
   const handleShare = async () => {
@@ -1028,32 +979,28 @@ export default function Home() {
                 </p>
               </div>
 
-              {/* Drop zones */}
-              <div className="grid grid-cols-2 gap-3">
-                <VideoDropZone
-                  label="Fra siden" badge="Anbefalt"
-                  videoFile={videoFile} thumbnail={thumbnail} isDragging={isDragging}
-                  inputRef={fileInputRef}
-                  onDragOver={() => setIsDragging(true)}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={onDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  onFileChange={onFileChange}
-                  onSwap={() => fileInputRef.current?.click()}
-                  onRemove={() => { if (previewUrl) URL.revokeObjectURL(previewUrl); setVideoFile(null); setPreviewUrl(null); setThumbnail(null) }}
-                />
-                <VideoDropZone
-                  label="Forfra" badge="Valgfritt"
-                  videoFile={videoFront} thumbnail={thumbFront} isDragging={isDraggingFront}
-                  inputRef={fileInputRefFront}
-                  onDragOver={() => setIsDraggingFront(true)}
-                  onDragLeave={() => setIsDraggingFront(false)}
-                  onDrop={onDropFront}
-                  onClick={() => fileInputRefFront.current?.click()}
-                  onFileChange={onFileChangeFront}
-                  onSwap={() => fileInputRefFront.current?.click()}
-                  onRemove={() => { if (previewFront) URL.revokeObjectURL(previewFront); setVideoFront(null); setPreviewFront(null); setThumbFront(null) }}
-                />
+              {/* Drop zone — én video */}
+              <VideoDropZone
+                label="Last opp sving" badge=""
+                videoFile={videoFile} thumbnail={thumbnail} isDragging={isDragging}
+                inputRef={fileInputRef}
+                onDragOver={() => setIsDragging(true)}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={onDrop}
+                onClick={() => fileInputRef.current?.click()}
+                onFileChange={onFileChange}
+                onSwap={() => fileInputRef.current?.click()}
+                onRemove={() => { if (previewUrl) URL.revokeObjectURL(previewUrl); setVideoFile(null); setPreviewUrl(null); setThumbnail(null) }}
+              />
+
+              {/* Fullstendig analyse — teaser */}
+              <div className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
+                style={{ background: 'rgba(0,0,0,0.04)', border: '1px dashed rgba(0,0,0,0.12)' }}>
+                <span className="text-xl">🔒</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-black/60">Fullstendig analyse</p>
+                  <p className="text-xs text-black/35 leading-snug mt-0.5">Last opp side- og frontvideo for dypere innsikt. Krever konto — kommer snart.</p>
+                </div>
               </div>
 
               {/* Ball flight selector */}
@@ -1185,13 +1132,9 @@ export default function Home() {
           {stage === 'preview' && previewData && (
             <FrameConfirmStep
               previewData={previewData}
-              primaryUrl={videoFile ? previewUrl : previewFront}
-              secondaryUrl={videoFile && videoFront ? previewFront : null}
-              primaryLabel={videoFile ? 'Fra siden' : 'Forfra'}
+              videoUrl={previewUrl}
               confirmedSide={confirmedSide}
               setConfirmedSide={setConfirmedSide}
-              confirmedFront={confirmedFront}
-              setConfirmedFront={setConfirmedFront}
             />
           )}
 
@@ -1272,26 +1215,13 @@ export default function Home() {
             <motion.div key="results" variants={stagger} initial="initial" animate="animate" className="pt-5 space-y-5">
 
               {/* ── Video replay ── */}
-              {(previewUrl || previewFront) && (
+              {previewUrl && (
                 <motion.div variants={item} className="space-y-2">
                   <p className="text-xs font-bold text-black/35 uppercase tracking-widest px-0.5">Din sving</p>
-                  {previewUrl && previewFront ? (
-                    <div className="grid grid-cols-2 gap-2">
-                      {[{ src: previewUrl, label: 'Side' }, { src: previewFront, label: 'Forfra' }].map(v => (
-                        <div key={v.label} className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)' }}>
-                          <div className="aspect-[9/16] bg-black">
-                            <video src={v.src} className="w-full h-full object-cover" controls playsInline style={{ display: 'block' }} />
-                          </div>
-                          <p className="text-xs text-center text-black/35 py-1.5 font-medium">{v.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="rounded-3xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
-                      <video src={previewUrl ?? previewFront ?? ''} className="w-full max-h-72 object-cover bg-black"
-                        controls playsInline style={{ display: 'block' }} />
-                    </div>
-                  )}
+                  <div className="rounded-3xl overflow-hidden" style={{ border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.06)' }}>
+                    <video src={previewUrl} className="w-full max-h-72 object-cover bg-black"
+                      controls playsInline style={{ display: 'block' }} />
+                  </div>
                 </motion.div>
               )}
 
@@ -1575,7 +1505,7 @@ export default function Home() {
       {/* ══════════════════ FIXED BOTTOM CTA ══════════════════ */}
 
       <AnimatePresence>
-        {(stage === 'idle' || stage === 'previewing') && !results && (videoFile || videoFront) && (
+        {(stage === 'idle' || stage === 'previewing') && !results && videoFile && (
           <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
             transition={{ duration: 0.4, ease }} className="fixed bottom-0 inset-x-0 z-30">
             <div className="max-w-xl mx-auto px-5 pb-6 pt-4"
@@ -1590,19 +1520,19 @@ export default function Home() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              <motion.button whileTap={{ scale: 0.97 }} onClick={handlePreview} disabled={!videoFile && !videoFront}
+              <motion.button whileTap={{ scale: 0.97 }} onClick={handlePreview} disabled={!videoFile}
                 className="w-full py-4 rounded-2xl font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                 style={{
-                  background: (videoFile || videoFront) ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'rgba(0,0,0,0.07)',
-                  color: (videoFile || videoFront) ? '#fff' : 'rgba(0,0,0,0.25)',
-                  boxShadow: (videoFile || videoFront) ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 32px rgba(5,150,105,0.4)' : 'none',
+                  background: videoFile ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)' : 'rgba(0,0,0,0.07)',
+                  color: videoFile ? '#fff' : 'rgba(0,0,0,0.25)',
+                  boxShadow: videoFile ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 8px 32px rgba(5,150,105,0.4)' : 'none',
                 }}>
                 <span className="flex items-center justify-center gap-2">
                   {isPreviewing
                     ? <><Loader2 size={18} className="animate-spin" /> Forbereder…</>
-                    : <><Sparkles size={18} className={(videoFile || videoFront) ? 'text-white/80' : ''} />
+                    : <><Sparkles size={18} className={videoFile ? 'text-white/80' : ''} />
                         Analyser sving
-                        {(videoFile || videoFront) && <ChevronRight size={16} />}
+                        {videoFile && <ChevronRight size={16} />}
                       </>
                   }
                 </span>
