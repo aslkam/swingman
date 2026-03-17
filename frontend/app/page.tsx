@@ -504,11 +504,11 @@ const PHASE_HINTS: Record<string, string> = {
 // Én delt video per kilde (i FrameConfirmStep) — unngår 4 parallelle loads.
 // Canvas-capture ved slider-drag for pålitelig bilde-oppdatering.
 function PhaseVideoCard({
-  phase, videoRef, fps, totalFrames, frameIdx, onChange, changed, defaultImage,
+  phase, videoRef, fps, totalFrames, frameIdx, onChange, changed, defaultImage, log,
 }: {
   phase: string; videoRef: React.RefObject<HTMLVideoElement>; fps: number; totalFrames: number
   frameIdx: number; onChange: (v: number) => void; changed: boolean
-  defaultImage?: string
+  defaultImage?: string; log: (msg: string) => void
 }) {
   const [displaySrc, setDisplaySrc] = React.useState<string | null>(
     defaultImage ? `data:image/jpeg;base64,${defaultImage}` : null
@@ -517,20 +517,27 @@ function PhaseVideoCard({
   const handleSlider = (newIdx: number) => {
     onChange(newIdx)
     const v = videoRef.current
-    if (!v) return
+    if (!v) { log(`ERR ${phase}: ref=null`); return }
+    log(`${phase}: drag→${newIdx} readyState=${v.readyState}`)
     const capture = () => {
       const canvas = document.createElement('canvas')
       canvas.width = v.videoWidth || 640
       canvas.height = v.videoHeight || 480
       canvas.getContext('2d')?.drawImage(v, 0, 0)
       setDisplaySrc(canvas.toDataURL('image/jpeg', 0.85))
+      log(`${phase}: captured ✓`)
     }
     const doSeek = () => {
       v.currentTime = newIdx / fps
+      log(`${phase}: seeking to ${(newIdx/fps).toFixed(1)}s`)
       v.addEventListener('seeked', capture, { once: true })
     }
     if (v.readyState >= 1) doSeek()
-    else { v.load(); v.addEventListener('loadedmetadata', doSeek, { once: true }) }
+    else {
+      log(`${phase}: loading first…`)
+      v.load()
+      v.addEventListener('loadedmetadata', doSeek, { once: true })
+    }
   }
 
   return (
@@ -586,13 +593,13 @@ function FrameConfirmStep({
   confirmedFront: Record<string, number>; setConfirmedFront: (v: Record<string, number>) => void
 }) {
   const hasSecondary = !!secondaryUrl && !!previewData.phase_indices_front
-  // Én delt video per kilde — alle fase-kort deler samme buffrede video
   const primaryVideoRef   = React.useRef<HTMLVideoElement>(null)
   const secondaryVideoRef = React.useRef<HTMLVideoElement>(null)
+  const [dbg, setDbg] = React.useState<string[]>([])
+  const log = (msg: string) => setDbg(prev => [`${new Date().toLocaleTimeString()}: ${msg}`, ...prev].slice(0, 12))
 
   return (
     <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
-      {/* Delte video-elementer — ett per kilde, preload="auto" for rask seeking */}
       {primaryUrl   && <video ref={primaryVideoRef}   src={primaryUrl}   muted playsInline preload="auto" className="hidden" />}
       {secondaryUrl && <video ref={secondaryVideoRef} src={secondaryUrl} muted playsInline preload="auto" className="hidden" />}
 
@@ -601,6 +608,16 @@ function FrameConfirmStep({
         <p className="text-black/45 text-sm mt-1.5 leading-relaxed">
           Vi har valgt disse bildene automatisk. Dra sliderene for å justere.
         </p>
+      </div>
+
+      {/* 🐛 DEBUG-panel — fjern etter feilsøking */}
+      <div className="rounded-2xl p-3 font-mono text-[10px] leading-relaxed space-y-0.5"
+        style={{ background: 'rgba(0,0,0,0.85)', color: '#4ade80' }}>
+        <p className="font-bold text-white/50 mb-1">DEBUG</p>
+        <p>primaryRef: {primaryVideoRef.current ? `✓ readyState=${primaryVideoRef.current.readyState} dur=${primaryVideoRef.current.duration?.toFixed(1)}s` : '✗ null'}</p>
+        <p>secondaryRef: {secondaryVideoRef.current ? `✓ readyState=${secondaryVideoRef.current.readyState}` : '✗ null'}</p>
+        <p>primaryUrl: {primaryUrl ? primaryUrl.slice(0,40) : 'null'}</p>
+        {dbg.map((l, i) => <p key={i} style={{ color: l.includes('ERR') ? '#f87171' : '#4ade80' }}>{l}</p>)}
       </div>
 
       {primaryUrl && (
@@ -615,6 +632,7 @@ function FrameConfirmStep({
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 defaultImage={previewData.keyframes?.[phase]}
                 onChange={(v) => setConfirmedSide({ ...confirmedSide, [phase]: v })}
+                log={log}
               />
             )
           })}
@@ -633,6 +651,7 @@ function FrameConfirmStep({
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 defaultImage={previewData.keyframes_front?.[phase]}
                 onChange={(v) => setConfirmedFront({ ...confirmedFront, [phase]: v })}
+                log={log}
               />
             )
           })}
