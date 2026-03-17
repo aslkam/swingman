@@ -234,11 +234,18 @@ SKILL_CONTEXT = {
 }
 
 
-def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level: str = "middels") -> dict:
+def get_coaching_feedback(measurements: dict, keyframe_images: dict, skill_level: str = "middels", ball_flight: str = "") -> dict:
     """Get Claude-based coaching feedback using both video frames and measurements"""
 
     data_text = json.dumps(measurements, indent=2, ensure_ascii=False)
     skill_text = SKILL_CONTEXT.get(skill_level, SKILL_CONTEXT["middels"])
+    ball_flight_text = ""
+    if ball_flight and ball_flight.strip() and ball_flight.strip() != "vet_ikke":
+        issues = [x.strip() for x in ball_flight.split(",") if x.strip() and x.strip() != "vet_ikke"]
+        if issues:
+            labels = {"tykk": "tykke slag (klubben treffer bakken før ballen)", "tynn": "tynne slag (klubben treffer toppen av ballen)", "høyre": "slag som går til høyre (push/slice)", "venstre": "slag som går til venstre (hook/pull)"}
+            described = [labels.get(i, i) for i in issues]
+            ball_flight_text = f"\nSpilleren opplever spesielt disse problemene: {', '.join(described)}. Adresser disse konkret i analysen."
 
     system_prompt = f"""Du er en profesjonell golfinstruktør med 20 års erfaring.
 {skill_text}
@@ -274,7 +281,7 @@ Returner alltid svaret som gyldig JSON med denne strukturen:
 
 score er et tall mellom 0 og 100 som gjenspeiler den totale kvaliteten på svingen.
 impact angir hvor stor effekt forbedringen vil ha på svingen (high/medium/low).
-phase angir hvilken sving-fase forbedringen gjelder (bruk nøyaktig en av de fire verdiene)."""
+phase angir hvilken sving-fase forbedringen gjelder (bruk nøyaktig en av de fire verdiene).{ball_flight_text}"""
 
     phase_labels = {
         'address': 'Adresse (utgangsstilling)',
@@ -349,7 +356,7 @@ async def health():
 
 
 @app.post("/analyze")
-async def analyze_swing(file: UploadFile = File(...), skill_level: str = Form(default="middels")):
+async def analyze_swing(file: UploadFile = File(...), skill_level: str = Form(default="middels"), ball_flight: str = Form(default="")):
     """
     Analyze a golf swing video
     
@@ -379,7 +386,7 @@ async def analyze_swing(file: UploadFile = File(...), skill_level: str = Form(de
                 raise HTTPException(status_code=400, detail="Kunne ikke analysere videoen. Prøv en annen video.")
 
             # Get coaching feedback
-            feedback = get_coaching_feedback(measurements, keyframe_images, skill_level)
+            feedback = get_coaching_feedback(measurements, keyframe_images, skill_level, ball_flight)
             
             feedback['measurements'] = measurements
             feedback['keyframes'] = keyframe_images

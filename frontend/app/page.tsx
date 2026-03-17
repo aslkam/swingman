@@ -46,6 +46,14 @@ const SKILL_LEVELS = [
   },
 ]
 
+const BALL_FLIGHT_OPTIONS = [
+  { key: 'tykk',     label: 'Tykk',      emoji: '⛏️', desc: 'Treffer bakken før ballen' },
+  { key: 'tynn',     label: 'Tynn',      emoji: '🪶', desc: 'Skraper toppen av ballen' },
+  { key: 'høyre',    label: 'Høyre',     emoji: '↗️', desc: 'Ballen sveier til høyre' },
+  { key: 'venstre',  label: 'Venstre',   emoji: '↖️', desc: 'Ballen sveier til venstre' },
+  { key: 'vet_ikke', label: 'Vet ikke',  emoji: '🤷', desc: '' },
+]
+
 const GOLF_TIPS = [
   '70% av alle golfslag skjer innen 100 meter fra hullet — kortspillet er nøkkelen.',
   'Grep-trykket bør være som å holde en fugl: fast nok til at den ikke flyr.',
@@ -442,6 +450,7 @@ export default function Home() {
   const [results, setResults]           = useState<any>(null)
   const [error, setError]               = useState<string | null>(null)
   const [skillLevel, setSkillLevel]     = useState<SkillLevel>('middels')
+  const [ballFlight, setBallFlight]     = useState<string[]>([])
   const [history, setHistory]           = useState<HistoryEntry[]>([])
   const [isDemo, setIsDemo]             = useState(false)
   const [showFull, setShowFull]         = useState(false)
@@ -539,6 +548,7 @@ export default function Home() {
       const form = new FormData()
       form.append('file', videoFile)
       form.append('skill_level', skillLevel)
+      form.append('ball_flight', ballFlight.join(','))
       const res = await axios.post(`${BACKEND_URL}/analyze`, form, {
         headers: { 'Content-Type': 'multipart/form-data' },
         onUploadProgress: (e) => {
@@ -575,7 +585,7 @@ export default function Home() {
     if (progressTimer.current) clearTimeout(progressTimer.current)
     if (elapsedTimer.current) clearInterval(elapsedTimer.current)
     setVideoFile(null); setPreviewUrl(null); setThumbnail(null)
-    setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false)
+    setResults(null); setError(null); setStage('idle'); setElapsedSeconds(0); setIsDemo(false); setShowFull(false); setBallFlight([])
   }
 
   const handleShare = async () => {
@@ -767,6 +777,47 @@ export default function Home() {
                     <p className="text-black/25 text-sm tracking-wide">MP4 · MOV · maks 50 MB</p>
                   </div>
                 )}
+              </div>
+
+              {/* Ball flight selector */}
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between px-0.5">
+                  <p className="text-sm font-semibold text-black/55">Hva sliter du med?</p>
+                  <span className="text-xs text-black/30">Valgfritt</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {BALL_FLIGHT_OPTIONS.map(opt => {
+                    const selected = ballFlight.includes(opt.key)
+                    return (
+                      <button
+                        key={opt.key}
+                        onClick={() => {
+                          if (opt.key === 'vet_ikke') {
+                            setBallFlight(selected ? [] : ['vet_ikke'])
+                          } else {
+                            setBallFlight(prev => {
+                              const without = prev.filter(k => k !== 'vet_ikke')
+                              return without.includes(opt.key)
+                                ? without.filter(k => k !== opt.key)
+                                : [...without, opt.key]
+                            })
+                          }
+                        }}
+                        className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium transition-all"
+                        style={{
+                          background: selected ? 'rgba(5,150,105,0.1)' : 'rgba(255,255,255,0.7)',
+                          border: `1.5px solid ${selected ? 'rgba(5,150,105,0.4)' : 'rgba(0,0,0,0.1)'}`,
+                          color: selected ? '#059669' : 'rgba(0,0,0,0.55)',
+                          backdropFilter: 'blur(20px)',
+                        }}
+                      >
+                        <span>{opt.emoji}</span>
+                        <span>{opt.label}</span>
+                        {opt.desc && <span className="text-xs opacity-60 hidden sm:inline">— {opt.desc}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Skill slider */}
