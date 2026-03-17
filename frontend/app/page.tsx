@@ -585,16 +585,18 @@ export default function Home() {
 
   const currentStepIndex = STEPS.findIndex(s => s.key === stage)
 
-  // Capture video thumbnail from first frame
-  const captureThumbnail = (file: File, objectUrl: string): Promise<string> => {
+  // Capture video thumbnail — søker til 10% av lengden for å unngå svart første frame
+  const captureThumbnail = (_file: File, objectUrl: string): Promise<string> => {
     return new Promise((resolve) => {
       const video = document.createElement('video')
       const canvas = document.createElement('canvas')
       video.src = objectUrl
       video.muted = true
       video.playsInline = true
-      video.addEventListener('loadeddata', () => {
-        video.currentTime = 0.5
+      video.preload = 'metadata'
+      video.addEventListener('loadedmetadata', () => {
+        // Søk til 10% av videolengden, minimum 0.5s
+        video.currentTime = Math.max(0.5, (video.duration || 5) * 0.1)
       })
       video.addEventListener('seeked', () => {
         canvas.width  = video.videoWidth  || 640
@@ -603,7 +605,7 @@ export default function Home() {
         resolve(canvas.toDataURL('image/jpeg', 0.85))
       })
       video.addEventListener('error', () => resolve(''))
-      setTimeout(() => resolve(''), 5000) // fallback
+      setTimeout(() => resolve(''), 6000) // fallback
     })
   }
 
