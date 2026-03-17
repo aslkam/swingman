@@ -516,9 +516,9 @@ function PhaseVideoCard({
   return (
     <div className="rounded-3xl overflow-hidden"
       style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
-      <div className="relative" style={{ height: 200 }}>
+      <div className="relative w-full" style={{ aspectRatio: '9/16', background: '#0a0a0a' }}>
         <video ref={videoRef} src={videoUrl} muted playsInline preload="auto"
-          className="w-full h-full object-cover" />
+          className="w-full h-full object-contain" />
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)' }} />
         <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between pointer-events-none">
