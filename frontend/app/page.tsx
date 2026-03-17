@@ -513,9 +513,11 @@ function PhaseVideoCard({
   const [displaySrc, setDisplaySrc] = React.useState<string | null>(
     defaultImage ? `data:image/jpeg;base64,${defaultImage}` : null
   )
+  // Lokal slider-posisjon vises umiddelbart. confirmedSide oppdateres kun etter capture.
+  const [localIdx, setLocalIdx] = React.useState(frameIdx)
 
   const handleSlider = (newIdx: number) => {
-    onChange(newIdx)
+    setLocalIdx(newIdx)
     const v = videoRef.current
     if (!v || v.readyState < 1) return
     const capture = () => {
@@ -523,6 +525,7 @@ function PhaseVideoCard({
       c.width = v.videoWidth || 640; c.height = v.videoHeight || 480
       c.getContext('2d')?.drawImage(v, 0, 0)
       setDisplaySrc(c.toDataURL('image/jpeg', 0.85))
+      onChange(newIdx)  // Oppdater confirmedSide kun når vi har fanget riktig frame
     }
     v.currentTime = newIdx / fps
     v.addEventListener('seeked', capture, { once: true })
@@ -546,7 +549,7 @@ function PhaseVideoCard({
             <span className="text-white text-sm font-semibold" style={{ textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{PHASE_LABELS_FULL[phase]}</span>
           </div>
           <span className="text-xs font-mono" style={{ color: changed ? '#6ee7b7' : 'rgba(255,255,255,0.6)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
-            {(frameIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
+            {(localIdx / fps).toFixed(1)}s{changed ? ' ✓' : ''}
           </span>
         </div>
         <div className="absolute inset-x-0 bottom-0 pointer-events-none"
@@ -554,7 +557,7 @@ function PhaseVideoCard({
         <div className="absolute inset-x-0 bottom-0 px-4 pb-3">
           <p className="text-[11px] leading-snug mb-2 pointer-events-none"
             style={{ color: 'rgba(255,255,255,0.65)', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>{PHASE_HINTS[phase]}</p>
-          <input type="range" min={0} max={totalFrames - 1} value={frameIdx}
+          <input type="range" min={0} max={totalFrames - 1} value={localIdx}
             onChange={(e) => handleSlider(Number(e.target.value))}
             className="w-full accent-emerald-400" style={{ height: 28 }}
           />
@@ -1499,8 +1502,8 @@ export default function Home() {
 
       <AnimatePresence>
         {(stage === 'idle' || stage === 'previewing') && !results && videoFile && (
-          <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-            transition={{ duration: 0.4, ease }} className="fixed bottom-0 inset-x-0 z-30">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease }} className="fixed bottom-0 inset-x-0 z-30">
             <div className="max-w-xl mx-auto px-5 pb-6 pt-4"
               style={{ background: 'linear-gradient(to top, rgba(245,245,247,0.98) 65%, transparent)' }}>
               <AnimatePresence>
@@ -1538,8 +1541,8 @@ export default function Home() {
 
       <AnimatePresence>
         {stage === 'preview' && (
-          <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-            transition={{ duration: 0.4, ease }} className="fixed bottom-0 inset-x-0 z-30">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease }} className="fixed bottom-0 inset-x-0 z-30">
             <div className="max-w-xl mx-auto px-5 pb-6 pt-4"
               style={{ background: 'linear-gradient(to top, rgba(245,245,247,0.98) 65%, transparent)' }}>
               <motion.button whileTap={{ scale: 0.97 }} onClick={handleAnalyze}
@@ -1565,8 +1568,8 @@ export default function Home() {
 
       <AnimatePresence>
         {stage === 'done' && results && (
-          <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-            transition={{ duration: 0.4, ease }} className="fixed bottom-0 inset-x-0 z-30">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.3, ease }} className="fixed bottom-0 inset-x-0 z-30">
             <div className="max-w-xl mx-auto px-5 pb-6 pt-4"
               style={{ background: 'linear-gradient(to top, rgba(245,245,247,0.98) 65%, transparent)' }}>
               {isDemo ? (
