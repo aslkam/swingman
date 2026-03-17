@@ -1492,6 +1492,45 @@ export default function Home() {
                 )}
               </AnimatePresence>
 
+              {/* ── Del + Analyser ny sving ── */}
+              <motion.div variants={item} className="pb-10">
+                {isDemo ? (
+                  <div className="space-y-2.5">
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={handleReset}
+                      className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-white"
+                      style={{
+                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 28px rgba(5,150,105,0.35)',
+                      }}>
+                      <Upload size={17}/> Last opp din video
+                    </motion.button>
+                  </div>
+                ) : (
+                  <div className="flex gap-3">
+                    <motion.button whileTap={{ scale: 0.96 }} onClick={handleShare}
+                      className="flex items-center justify-center gap-2 py-4 px-6 rounded-2xl text-sm font-bold transition-all"
+                      style={{
+                        border: copied ? '1.5px solid #059669' : '1px solid rgba(0,0,0,0.1)',
+                        background: copied ? 'rgba(5,150,105,0.08)' : 'rgba(255,255,255,0.75)',
+                        color: copied ? '#059669' : 'rgba(0,0,0,0.5)',
+                        backdropFilter: 'blur(20px)',
+                        boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
+                      }}>
+                      {copied ? <Check size={16}/> : <Share2 size={16}/>}
+                      {copied ? 'Kopiert!' : 'Del'}
+                    </motion.button>
+                    <motion.button whileTap={{ scale: 0.97 }} onClick={handleReset}
+                      className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-white"
+                      style={{
+                        background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 28px rgba(5,150,105,0.35)',
+                      }}>
+                      <RotateCcw size={16}/> Analyser ny sving
+                    </motion.button>
+                  </div>
+                )}
+              </motion.div>
+
             </motion.div>
           )}
 
@@ -1566,55 +1605,6 @@ export default function Home() {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {stage === 'done' && results && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease }} className="fixed bottom-0 inset-x-0 z-30">
-            <div className="max-w-xl mx-auto px-5 pb-6 pt-4"
-              style={{ background: 'linear-gradient(to top, rgba(245,245,247,0.98) 65%, transparent)' }}>
-              {isDemo ? (
-                <div className="space-y-2.5">
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={handleReset}
-                    className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-white"
-                    style={{
-                      background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 28px rgba(5,150,105,0.35)',
-                    }}>
-                    <Upload size={17}/> Last opp din video
-                  </motion.button>
-                  <button onClick={handleReset}
-                    className="w-full text-center text-sm text-black/35 hover:text-black/55 transition-colors py-1">
-                    ← Tilbake til start
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-3">
-                  <motion.button whileTap={{ scale: 0.96 }} onClick={handleShare}
-                    className="flex items-center justify-center gap-2 py-4 px-6 rounded-2xl text-sm font-bold transition-all"
-                    style={{
-                      border: copied ? '1.5px solid #059669' : '1px solid rgba(0,0,0,0.1)',
-                      background: copied ? 'rgba(5,150,105,0.08)' : 'rgba(255,255,255,0.75)',
-                      color: copied ? '#059669' : 'rgba(0,0,0,0.5)',
-                      backdropFilter: 'blur(20px)',
-                      boxShadow: '0 2px 16px rgba(0,0,0,0.06)',
-                    }}>
-                    {copied ? <Check size={16}/> : <Share2 size={16}/>}
-                    {copied ? 'Kopiert!' : 'Del'}
-                  </motion.button>
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={handleReset}
-                    className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base text-white"
-                    style={{
-                      background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                      boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2), 0 8px 28px rgba(5,150,105,0.35)',
-                    }}>
-                    <RotateCcw size={16}/> Analyser ny sving
-                  </motion.button>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
     </div>
   )
