@@ -501,16 +501,15 @@ const PHASE_HINTS: Record<string, string> = {
   follow_through: 'Finn framen der svingen er ferdig — vekten på venstre fot, hofter vendt mot målet, køllen bak ryggen.',
 }
 
-// Viser backend-bilde som default; canvas-capture ved slider-drag.
-// Unngår svarte frames fra parallell video-seeking på mobil.
+// Én delt video per kilde (i FrameConfirmStep) — unngår 4 parallelle loads.
+// Canvas-capture ved slider-drag for pålitelig bilde-oppdatering.
 function PhaseVideoCard({
-  phase, videoUrl, fps, totalFrames, frameIdx, onChange, changed, defaultImage,
+  phase, videoRef, fps, totalFrames, frameIdx, onChange, changed, defaultImage,
 }: {
-  phase: string; videoUrl: string; fps: number; totalFrames: number
+  phase: string; videoRef: React.RefObject<HTMLVideoElement>; fps: number; totalFrames: number
   frameIdx: number; onChange: (v: number) => void; changed: boolean
   defaultImage?: string
 }) {
-  const videoRef = React.useRef<HTMLVideoElement>(null)
   const [displaySrc, setDisplaySrc] = React.useState<string | null>(
     defaultImage ? `data:image/jpeg;base64,${defaultImage}` : null
   )
@@ -519,15 +518,16 @@ function PhaseVideoCard({
     onChange(newIdx)
     const v = videoRef.current
     if (!v) return
+    const capture = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = v.videoWidth || 640
+      canvas.height = v.videoHeight || 480
+      canvas.getContext('2d')?.drawImage(v, 0, 0)
+      setDisplaySrc(canvas.toDataURL('image/jpeg', 0.85))
+    }
     const doSeek = () => {
       v.currentTime = newIdx / fps
-      v.addEventListener('seeked', () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = v.videoWidth || 640
-        canvas.height = v.videoHeight || 480
-        canvas.getContext('2d')?.drawImage(v, 0, 0)
-        setDisplaySrc(canvas.toDataURL('image/jpeg', 0.85))
-      }, { once: true })
+      v.addEventListener('seeked', capture, { once: true })
     }
     if (v.readyState >= 1) doSeek()
     else { v.load(); v.addEventListener('loadedmetadata', doSeek, { once: true }) }
@@ -536,8 +536,6 @@ function PhaseVideoCard({
   return (
     <div className="rounded-3xl overflow-hidden"
       style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(0,0,0,0.08)', boxShadow: '0 2px 16px rgba(0,0,0,0.05)', backdropFilter: 'blur(20px)' }}>
-      {/* Skjult video — kun for canvas-seeking */}
-      <video ref={videoRef} src={videoUrl} muted playsInline preload="metadata" className="hidden" />
       <div style={{ position: 'relative', paddingTop: '177.78%', background: '#0a0a0a' }}>
         {displaySrc
           ? <img src={displaySrc} alt={phase}
@@ -588,9 +586,16 @@ function FrameConfirmStep({
   confirmedFront: Record<string, number>; setConfirmedFront: (v: Record<string, number>) => void
 }) {
   const hasSecondary = !!secondaryUrl && !!previewData.phase_indices_front
+  // Én delt video per kilde — alle fase-kort deler samme buffrede video
+  const primaryVideoRef   = React.useRef<HTMLVideoElement>(null)
+  const secondaryVideoRef = React.useRef<HTMLVideoElement>(null)
 
   return (
     <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
+      {/* Delte video-elementer — ett per kilde, preload="auto" for rask seeking */}
+      {primaryUrl   && <video ref={primaryVideoRef}   src={primaryUrl}   muted playsInline preload="auto" className="hidden" />}
+      {secondaryUrl && <video ref={secondaryVideoRef} src={secondaryUrl} muted playsInline preload="auto" className="hidden" />}
+
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#1d1d1f' }}>Bekreft nøkkelbilder</h2>
         <p className="text-black/45 text-sm mt-1.5 leading-relaxed">
@@ -605,7 +610,7 @@ function FrameConfirmStep({
             const autoIdx = previewData.phase_indices?.[phase] ?? 0
             const curIdx  = confirmedSide[phase] ?? autoIdx
             return (
-              <PhaseVideoCard key={`primary-${phase}`} phase={phase} videoUrl={primaryUrl}
+              <PhaseVideoCard key={`primary-${phase}`} phase={phase} videoRef={primaryVideoRef}
                 fps={previewData.fps ?? 30} totalFrames={previewData.total_frames ?? 100}
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 defaultImage={previewData.keyframes?.[phase]}
@@ -623,7 +628,7 @@ function FrameConfirmStep({
             const autoIdx = previewData.phase_indices_front?.[phase] ?? 0
             const curIdx  = confirmedFront[phase] ?? autoIdx
             return (
-              <PhaseVideoCard key={`secondary-${phase}`} phase={phase} videoUrl={secondaryUrl}
+              <PhaseVideoCard key={`secondary-${phase}`} phase={phase} videoRef={secondaryVideoRef}
                 fps={previewData.fps_front ?? 30} totalFrames={previewData.total_frames_front ?? 100}
                 frameIdx={curIdx} changed={curIdx !== autoIdx}
                 defaultImage={previewData.keyframes_front?.[phase]}
