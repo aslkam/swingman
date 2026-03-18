@@ -622,7 +622,7 @@ function FrameConfirmStep({
   confirmedSide: Record<string, number>; setConfirmedSide: (v: Record<string, number>) => void
 }) {
   return (
-    <motion.div key="confirm" {...fadeUp} className="pt-5 pb-40 space-y-6">
+    <motion.div key="confirm" {...fadeUp} className="pt-5 pb-10 space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight" style={{ color: '#1d1d1f' }}>Bekreft nøkkelbilder</h2>
         <p className="text-black/45 text-sm mt-1.5 leading-relaxed">
@@ -777,6 +777,7 @@ export default function Home() {
     } catch (err: any) {
       let msg = 'Forhåndsvisning feilet. Prøv igjen.'
       if (!err.response) msg = 'Kunne ikke koble til serveren. Sjekk internettforbindelsen din.'
+      else if (err.response.data?.detail) msg = err.response.data.detail
       setError(msg); setStage('idle')
     }
   }
@@ -1127,6 +1128,7 @@ export default function Home() {
           {/* ══════════════════════ PREVIEW ══════════════════════ */}
           {stage === 'preview' && previewData && (
             <FrameConfirmStep
+              key="confirm"
               previewData={previewData}
               videoUrl={previewUrl}
               confirmedSide={confirmedSide}
